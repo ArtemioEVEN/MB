@@ -20,9 +20,12 @@
     require_once('../lista_stripe/php/Sajax.php');
     $sajax_debug_mode=0;
     sajax_init();
-    require_once('./php/functions_trainingsV2.php');
-    require_once("./php/functions_blocksV2.php");
-    require_once('./php/db_trainingsV2.php');
+    require_once('./php/functions_trainings.php');
+
+    require_once("./php/functions_blocks.php");
+    require_once("./php/functions_groups.php");
+
+    require_once('./php/db_connection.php');
     sajax_handle_client_request();
 
     $function_load = '';
@@ -269,8 +272,12 @@
 <script src="./js/custom.js"></script>
 <!--<script src="js/forms.js"></script>-->
 
-<script type="text/javascript" src="./js/functions_trainingsV2.js?<?php echo time(); ?>"></script>
-<script type="text/javascript" src="./js/functions_blocksV2.js?<?php echo time(); ?>"></script>
+<script type="text/javascript" src="./js/functions_trainings.js?<?php echo time(); ?>"></script>
+    
+<script type="text/javascript" src="./js/functions_blocks.js?<?php echo time(); ?>"></script>
+
+<script type="text/javascript" src="./js/functions_groups.js?<?php echo time(); ?>"></script>
+    
 <!-- - W I S A R D - -->
 <script type="text/javascript" src="./js/jquery.smartWizard.min.js"></script>
 <!-- - A L E R T   M E S S A G E S - -->
