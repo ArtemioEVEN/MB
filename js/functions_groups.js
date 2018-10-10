@@ -6,3 +6,7 @@ function get_events_form(){// Llama al formulario para agregar EVENTOS o MASTERS
 	jQuery('.pagetitle').html('<h5>Agregar, Editar y Consultar</h5><h1>Definir Grupos</h1>');//Cambiamos mensaje en titulo
 	x_get_events_form(0, Content_general);//Llamada a PHP
 }
+function get_events_table(filter,option){// Muestra EVENTOS o MASTERS
+	jQuery('.second_content').html('<h5 class="subtitle">Cargando Grupos...</h5><br />');//Definir <div class="second_content"></div> antes de usar la caida en el div
+	x_get_events_table(filter,option, Content_second);
+}
