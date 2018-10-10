@@ -4,7 +4,7 @@ function Content_general(res){ // YA
 	var content = res[1];//Contenido
 	var paramtr = res[2];//Parametro(s) adicional(es)
 	jQuery('.row').html(content);
-	// - - - - - - - 
+	
 	if (origen == 2) { load_datepicker(); get_events_table(0, paramtr);}//Funciones para formulario de eventos //get_events_form() ||0 es el filtro ALL de Events, paramtr trae 0 o 1 que es (evento, master)
 	if (origen == 3) { load_form_wisard_script(); }// wisard para asignar entrenamientos //get_events_form_add_trains
 	if (origen == 4 && paramtr == 1) { 
@@ -28,4 +28,21 @@ function Content_general(res){ // YA
 		load_select_master_assigments(id_event);
 	}
 }
+/////////
+function Content_second(res){// Hay que definir previamente <div class="second_content"></div>
+	jQuery('.second_content').html(res);
+	jQuery(document).ready(function(){
+	        jQuery('#dyntable').dataTable({
+	            "sPaginationType": "full_numbers",
+	            "aaSortingFixed": [[0,'asc']],
+	            "fnDrawCallback": function(oSettings) {
+	                jQuery.uniform.update();
+	            }
+	        });
+	    });
+}
+/////////
+/////////
+/////////
+/////////
 /////////
