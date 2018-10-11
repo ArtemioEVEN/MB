@@ -34,3 +34,48 @@ function get_edit_list(filter,opc,order){//filter 0 default 1past, 2present, 3fu
 	jQuery('.pagetitle').html('<h5>Editar Grupos</h5><h1>Editar Grupos</h1>');
 	x_get_events_table_editable(filter,opc,order, Content_universal); //content&&&id_or_class
 }
+function get_event_form_edit(id_event, opt){
+	jQuery('#load_edit_form').html('<h4>Cargando Evento...</h4>');
+	x_get_event_form_edit(id_event,opt, Content_universal);
+}
+function get_info_edit_event(opt){
+	var id_event = document.getElementById('event_edit').value;
+	if (opt == 1) {//eventos antiguos
+		var category = document.getElementById('type_event').value;
+		var name     = document.getElementById('name_event').value;
+		var date     = document.getElementById('datepicker').value;
+		if (category == '' || name == '' || date == '') {
+			jQuery('#load_edit_event').html('<span style="color:red;font-size:14px;"><p>Por favor, inserta los campos obligados...</p></span>');
+		}else{ x_edit_event(opt,id_event,category,name,date, Content_process); }
+	}else{//eventos nuevos
+		var type_e   = document.getElementById('type_ee').value;
+		var category = document.getElementById('type_event').value;
+		var name     = document.getElementById('name_event').value
+		var date     = document.getElementById('datepicker').value;
+		var srt_e 	 = document.getElementById('str_ee').value;
+		var lvl_e 	 = document.getElementById('level_master').value;
+		if (type_e == '' || category == '' || name == '' || date == '' || srt_e == '' || lvl_e == '') {
+			jQuery('#load_edit_event').html('<span style="color:red;font-size:14px;"><p>Por favor, inserta los campos obligados...</p></span>');
+		}else{
+			name = type_e+'.'+category+'.'+name+'.'+srt_e+'.'+lvl_e;
+			//alert(opt+','+id_event+','+category+','+name+','+date); 
+			x_edit_event(opt,id_event,category,name,date, Content_process); 
+		}
+	}
+}
+function form_extra_weeks_event(weeks,date,background,hidde_cols){
+	weeks = parseInt(weeks);
+	jQuery("#form_add_weeks_event").html('<div class="form-group"><label for="weeks_to_add">&nbsp;&nbsp;&nbsp;&nbsp;Semanas a agregar<span style="color:red;"> *</span></label>&nbsp;&nbsp;&nbsp;&nbsp;<select id="weeks_to_add" style="width: 45px;"><option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option></select><input type="hidden" id="weeks" value="'+weeks+'"/><input type="hidden" id="date" value="'+date+'"/><input type="hidden" id="background" value="'+background+'"/><input type="hidden" id="hidde_cols" value="'+hidde_cols+'"/>&nbsp;&nbsp;&nbsp;&nbsp;<button class="btn btn-primary" type="button" onclick="generate_extra_weeks_event();">Agregar</button></div>');
+}
+function generate_extra_weeks_event(){
+	var weeks = document.getElementById('weeks_to_add').value;
+	var week  = document.getElementById('weeks').value;
+	var date  = document.getElementById('date').value;
+	var backg = document.getElementById('background').value;
+	var hiddn = document.getElementById('hidde_cols').value;
+	var id_tm = document.getElementById('id_temp').value;
+	if (weeks != "" && weeks != "undefined" && week != "" && week != "undefined") {
+		x_generate_extra_weeks_event(weeks,week,date,backg,hiddn,id_tm, load_extra_weeks_event);
+	}else{ swal("Error", "Por favor, selecciona las semanas que deseas agregar...", "error"); }
+}
+
