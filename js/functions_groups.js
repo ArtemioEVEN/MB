@@ -78,4 +78,10 @@ function generate_extra_weeks_event(){
 		x_generate_extra_weeks_event(weeks,week,date,backg,hiddn,id_tm, load_extra_weeks_event);
 	}else{ swal("Error", "Por favor, selecciona las semanas que deseas agregar...", "error"); }
 }
-
+function get_block_event_info(row){
+	var id_e = document.getElementById('ie').value;
+	var wk_e = document.getElementById('wk').value;
+	var nt_e = document.getElementById('nb').value;
+	x_save_blocked_event_week(id_e,wk_e,nt_e,row, Content_process);
+}
+function del_block_event(id_gb,row){ x_del_block_event(id_gb,row, Content_process); }
