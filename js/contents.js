@@ -539,6 +539,50 @@ function load_extra_weeks_event(response){
 	}else{ swal("Error", "No fue posible editar la fecha del grupo...", "error"); }
 }
 /////////
+function Content_col(res){//Hay que definir previamente <div id="dashboard-left" class="col-md-8"></div> en .row
+	jQuery('.col-md-8').html(res);
+}
+/////////
+function Content_popup(res){
+	res = res.split('|&|');
+	var type = res[0];
+	var message = res[1];
+	jQuery('.message_box_'+type).html(message);
+	jQuery(".chzn-select").chosen();
+}
+/////////
+function Content_popup_notes(res){
+	res = res.split('|&|');
+	var type = res[0];
+	var message = res[1];
+	var type_note = res[2];
+	jQuery('.message_box_'+type).html(message);
+	jQuery("#popup_box_"+type).animate({width:390},"slow"); //Ajustamos el ancho para que entre correctamente el editor de texts
+	jQuery("#popup_box_"+type).animate({height:480},"slow");
+    jQuery().ready(function() { //El codigo original de este script esta en "wysiwyg.js"
+		jQuery('textarea.tinymce').tinymce({
+			// Location of TinyMCE script
+			script_url : 'js/tinymce/tiny_mce.js',
+			// General options
+			theme : "simple",//advanced
+			skin : "default",//themepixels
+			width: "100%",
+			plugins : "autolink,lists,pagebreak,style,layer,table,save,advhr,advimage,advlink,emotions,iespell,inlinepopups,insertdatetime,preview,media,searchreplace,print,paste,directionality,fullscreen,noneditable,visualchars,nonbreaking,xhtmlxtras,template,advlist",
+			inlinepopups_skin: "themepixels",
+			theme_advanced_buttons3 : "",
+			theme_advanced_toolbar_location : "top",
+			theme_advanced_toolbar_align : "left",
+			theme_advanced_statusbar_location : "bottom",
+			theme_advanced_resizing : true,
+			//readonly : 1,
+		});
+		jQuery('.editornav a').click(function(){
+			jQuery('.editornav li.current').removeClass('current');
+			jQuery(this).parent().addClass('current');
+			return false;
+		});
+	});
+}
 /////////
 /////////
 /////////
