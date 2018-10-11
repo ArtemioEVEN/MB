@@ -523,5 +523,26 @@ function Content_universal(data){//contenido html  &&&  id or class of div or sp
 	}
 }
 /////////
+//Contenedor de tablas generadas con semanas adicionales
+function load_extra_weeks_event(response){
+	response = response.split("#@#@#");
+	var update = parseInt(response[0]);
+	if (update > 0) {
+		jQuery('.trainings').attr('id','test');
+		/*Table 1*/ jQuery('#t_ex tr:last').after(response[1]);
+		/*Table 2*/ jQuery('#test tr:last').after(response[2]);	
+		jQuery('.trainings').attr('id','t_ex');
+		resize_rows_height();
+		jQuery().toastmessage('showSuccessToast', 'Fecha de Grupo editada...');
+		jQuery('#form_add_weeks_event').html("");
+		jQuery("#add_weeks_button").prop("disabled",true);
+	}else{ swal("Error", "No fue posible editar la fecha del grupo...", "error"); }
+}
+/////////
+/////////
+/////////
+/////////
+/////////
+/////////
 /////////
 /////////
