@@ -4,6 +4,8 @@
   	sajax_export("get_events_form");	//Obtiene forma para insertar Eventos o Masters en DB
 	sajax_export("get_events_table");	//Obtiene los Eventos o Masters disponibles en DB
 	sajax_export("save_new_event");		//Guarda un Evento o un Master en DB
+	sajax_export("get_events_table_editable");
+	sajax_export("get_event_form_edit");
 
   	// / / / / / / / / /
 	function get_events_form(){
@@ -257,6 +259,103 @@
             return $all_content.'&&&.row_aux';
       }
 	// / / / / / / / / /
+	function get_event_form_edit($id_event, $option){#77776666
+            $date = $type = $weeks = '';
+            ($option == 1) ? $template = 0 : $template = 1;
+            $category_event = $name_event = $date_event = '';
+            $event_info = select_gral('`Events`', 'id_e, name_e, date_e, (SELECT name_t FROM Types WHERE id_t = type) AS type', 'id_e="'.$id_event.'"', 'id_e');//`Types`
+            if($event_info == true){
+                  foreach ($event_info as $key) {
+                        $category_event = $key[3];//utf8_encode($key[3]);
+                        $name_event = utf8_encode($key[1]);
+                        $date_event = utf8_encode($key[2]);
+                  }
+            }
+            switch ($option) {
+                  case 1://EVENTO
+                        $type = 'Grupo';
+                        $date = '<div class="form-group">
+                                    <label for="date_event">Fecha Grupo <span style="color:red;">*</span></label>
+                                    <input id="datepicker" type="text" placeholder="yyyy/mm/dd" name="date" class="form-control" value="'.$date_event.'"/>
+                                 </div>';
+                        break;
+                  case 2://Template
+                        $type = 'Template';
+                        break;
+                  
+                  default: break;
+            }
+            $form = '<br>';
+            if ($id_event <= 1667) {
+                  $form .= '
+                        <div class="widget">
+                              <h4 class="widgettitle">Editar '.$type.' '.$name_event.'</h4>
+                              <div class="widgetcontent">
+                                    <input type="hidden" id="event_edit" value="'.$id_event.'">
+                                    <div class="form-group">'.build_select_db('Types', 'name_t', 'id_t', 'type_event', 'Categoría '.$type, 1, '', '', '', '', $category_event, 0).'</div>
+                                    <div class="form-group">
+                                          <label for="name_event">Nombre '.$type.'<span style="color:red;">*</span></label>
+                                          <input id="name_event" class="form-control input-default" type="text" placeholder="Nombre del '.$type.'" value="'.utf8_encode($name_event).'">
+                                    </div>
+                                    '.$date.'         
+                                    '.$weeks.'
+                                    <!--<div class="form-group">
+                                          <textarea cols="50" rows="3" id="notes_event" class="form-control input-default" style="display:none;"></textarea>
+                                    </div>-->
+                                    <div id="load_edit_event"></div>
+                                    <br>
+                                    <button class="btn btn-primary" type="button" onclick="get_info_edit_event('.$option.'); return false;">Editar '.$type.'</button>
+                              </div>
+                        </div>';
+            }else{
+                  $t_e = $c_e = $n_e = $s_e = $l_e = $selected = '';
+                  $name_event = explode('.', $name_event);
+                  $t_e = $name_event[0]; $c_e = $name_event[1]; $n_e = $name_event[2]; $s_e = $name_event[3]; $l_e = $name_event[4];
+                  $form .= '  
+                        <div class="widget">
+                              <h4 class="widgettitle"> Agregar Nuevo Grupo</h4>
+                              <div class="widgetcontent">
+                                    <input type="hidden" id="event_edit" value="'.$id_event.'">
+                                 <form class="form-inline" role="form">
+                                 <label>Info Grupo <span style="color:red;">*</span></label><br> 
+                                    <div class="form-group">
+                                          <select id="type_ee" class="chzn-select dropdown form-control input-default" name="type_ee" tabindex="2" style="width:130px" >
+                                                <option value=""></option>';
+                                    ($t_e == "Carrera") ? $selected = 'selected' : $selected = '';
+                                    $form .= '  <option value="Carrera" '.$selected.'>Carrera</option>';
+                                    ($t_e == "Natacion") ? $selected = 'selected' : $selected = '';
+                                    $form .= '  <option value="Natacion" '.$selected.'>Natación</option>';
+                                    ($t_e == "Triatlon") ? $selected = 'selected' : $selected = '';
+                                    $form .= '  <option value="Triatlon" '.$selected.'>Triatlón</option>';
+                                    ($t_e == "Ciclismo" || $t_e == 'Bicicleta') ? $selected = 'selected' : $selected = '';
+                                    $form .= '  <option value="Ciclismo" '.$selected.'>Ciclismo</option>';
+                                    ($t_e == "Otros") ? $selected = 'selected' : $selected = '';
+                                    $form .= '  <option value="Otros" '.$selected.'>Otros</option>
+                                          </select>
+                                    </div><b style="font-size:20px;"> . </b>
+                                    <div class="form-group">'.build_select_db('Types', 'name_t', 'name_t', 'type_event', '', 0, '', '', '', '', $c_e, 0).'</div><b style="font-size:20px;"> . </b>
+                                    <div class="form-group">
+                                          <label class="sr-only" for="name_ee">Tipo</label>
+                                          <input id="name_event" class="form-control input-default" placeholder="Ingresa Nombre" type="text" value="'.$n_e.'">
+                                    </div><b style="font-size:20px;"> . </b>
+                                    <div class="form-group">
+                                          <label class="sr-only" for="str_ee">Tipo</label>
+                                          <input id="str_ee" class="form-control input-default" placeholder="Estructura" type="text" value="'.$s_e.'">
+                                    </div><b style="font-size:20px;"> . </b>
+                                    <div class="form-group">'.build_select_db('Levels', 'name_l', 'name_l', 'level_master', '', 0, '', '', '', '', $l_e, 0).'</div>
+                                 </form>
+                                    <div class="form-group">
+                                          <label for="date_event">Fecha Grupo <span style="color:red;">*</span></label>
+                                          <input id="datepicker" type="text" placeholder="yyyy/mm/dd" name="date" class="form-control" value="'.$date_event.'" onchange="check_day_date(this.value); return false;"/>
+                                    </div>
+                                    <div id="load_edit_event"></div>
+                                    <br>
+                                    <button class="btn btn-primary" type="button" onclick="get_info_edit_event(2); return false;">Editar '.$type.'</button>
+                              </div>
+                          </div>';
+            }
+            return $form.'&&&#load_edit_form';
+      }
 	// / / / / / / / / /
 	// / / / / / / / / /
 	// / / / / / / / / /
