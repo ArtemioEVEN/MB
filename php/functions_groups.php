@@ -8,6 +8,8 @@
 	sajax_export("get_event_form_edit");
 	sajax_export("edit_event");
 	sajax_export("generate_extra_weeks_event");
+	sajax_export("save_blocked_event_week");//Bloqueo de grupos
+	sajax_export("del_block_event");	//Eliminado de bloque de grupos
 
   	// / / / / / / / / /
 	function get_events_form(){
@@ -425,7 +427,33 @@
       return $update_temporal."#@#@#".$tabla1."#@#@#".$tabla2;
 }
 	// / / / / / / / / /
+	function save_blocked_event_week($id_event,$week,$note,$row){
+      //origen@-@response@-@paramtr
+            $insert_bg = insert_gral('`Blocked_groups`', '`id_e`,`week`,`user`,`reason`', '"'.$id_event.'","'.$week.'","'.$_SESSION['name_u'].'","'.utf8_decode($note).'"');# tabla, campos, valores
+            $res_log = intval($insert_bg);
+
+            if ($res_log > 0) {
+                  # Activity_code = 19
+                  $name = select_gral('Events','name_e','id_e="'.$id_event.'"','id_e LIMIT 1');
+                  if ($name == true) { foreach ($name as $key) { $name = $key[0]; } }
+                  $message = "El usuario *".$_SESSION['name_u']."* bloqueó el envio del grupo *".$name."* en la semana *".$week."*";
+                  log_mb_register($message, "19");
+            }
+            return "34@-@".intval($insert_bg)."@-@".$row."-|-".$id_event."_".$row."-|-".$name."-|-".$week."-|-".$_SESSION['name_u']."-|-".utf8_decode($note)."-|-".$_SESSION['name_u'];
+      }
 	// / / / / / / / / /
+	function del_block_event($id_bg,$row){
+            $id_e = $week = $name = "";
+            $info_bg = select_gral('`Blocked_groups` AS bg','bg.id_e,bg.week,(SELECT name_e FROM `Events` WHERE id_e=bg.id_e LIMIT 1) as name','bg.id_bg="'.$id_bg.'"','bg.id_bg LIMIT 1');
+            if ($info_bg == true) { foreach ($info_bg as $key_bg) { $id_e = $key_bg[0]; $week = $key_bg[1]; $name = $key_bg[2]; } }
+            $delete_gb = delete_gral('`Blocked_groups`', "id_bg='".$id_bg."'");
+            if ($delete_gb == 1) {
+                  # Activity_code = 20
+                  $message = "El usuario *".$_SESSION['name_u']."* activó el envio del grupo *".$name."* en la semana *".$week."*";
+                  log_mb_register($message, "20");
+            }
+            return "35@-@".$delete_gb."@-@".$row."-|-".$id_e."-|-".$week."-|-".$name;
+      }
 	// / / / / / / / / /
 	// / / / / / / / / /
 	// / / / / / / / / /
