@@ -584,6 +584,102 @@ function Content_popup_notes(res){
 	});
 }
 /////////
+function Content_json_tss(info){//1 type (0 summary, 1 master, 2 desintegrate session tab2),2 json object
+	info = info.split('&&&');
+	var type   	   = info[0];
+	var object     = JSON.parse(info[1]);
+	var extra_info = info[2];
+	if (type == 0) {//Summary
+		// T A B L A   1
+		jQuery('#total_tss_week_'+object.row).html('S: '+object.tsss+' | B: '+object.tssb+' | R: '+object.tssr+'</span>');//Tabla1
+		jQuery('#total_tss_week_'+object.row+'_s').html('S: '+object.tsss+' | B: '+object.tssb+' | R: '+object.tssr+'</span>');//Tabla3
+		object.tssb = object.tssb || 0;//convert any false value to 0
+		object.tssr = object.tssr || 0;
+		var rb = 0;
+		(object.tssb > 0 && object.tssr > 0) ? rb = (object.tssb/object.tssr).toFixed(2) : rb = 0;
+		var tss = Math.round((object.tsss+object.tssb+object.tssr)/7);
+		if (rb < 2) {
+			jQuery('.summary_session_'+object.row).html('↑ B/R ↓ → <span id="br_'+object.row+'">'+rb+'</span> | <span id="tp_'+object.row+'">'+tss+'</span> TSS/día');//Tabla 1
+			jQuery('.summary_session_'+object.row+'_c').html('ajuste: ↑ B o ↓ R');//Tabla 2
+			jQuery('.summary_session_'+object.row+'_s').html('↑ B/R ↓ → <span id="br_'+object.row+'_s">'+rb+'</span> | <span id="tp_'+object.row+'_s">'+tss+'</span> TSS/día');//Tabla 3
+		}
+		if (rb == 2) {
+			jQuery('.summary_session_'+object.row).html('B/R → <span id="br_'+object.row+'">'+rb+'</span> | <span id="tp_'+object.row+'">'+tss+'</span> TSS/día');//Tabla 1
+			jQuery('.summary_session_'+object.row+'_c').html('ajuste: n/a');//Tabla 2
+			jQuery('.summary_session_'+object.row+'_s').html('B/R → <span id="br_'+object.row+'_s">'+rb+'</span> | <span id="tp_'+object.row+'_s">'+tss+'</span> TSS/día');//('n/a');//Tabla 3
+		}
+		if (rb > 2) {
+			jQuery('.summary_session_'+object.row).html('↓ B/R ↑ → <span id="br_'+object.row+'">'+rb+'</span> | <span id="tp_'+object.row+'">'+tss+'</span> TSS/día');//Tabla 1
+			jQuery('.summary_session_'+object.row+'_c').html('ajuste: ↓ B o ↑ R');//Tabla 2
+			jQuery('.summary_session_'+object.row+'_s').html('↓ B/R ↑ → <span id="br_'+object.row+'_s">'+rb+'</span> | <span id="tp_'+object.row+'_s">'+tss+'</span> TSS/día');//Tabla 3
+		}
+		// T A B L A   2
+		jQuery('.br_'+object.row+'_c').html(rb);
+		jQuery('.tp_'+object.row+'_c').html(tss);
+		jQuery('.t_tsss_'+object.row+'_c').html(object.tsss); jQuery('.t_tssb_'+object.row+'_c').html(object.tssb); jQuery('.t_tssr_'+object.row+'_c').html(object.tssr);
+	}
+	if (type == 1) {
+		// T A B L A   2
+		jQuery('#total_tss_week_'+object.row+'_s').html('S: '+object.tsss+' | B: '+object.tssb+' | R: '+object.tssr+'</span>');//Tabla3
+		object.tssb = object.tssb || 0;//convert any false value to 0
+		object.tssr = object.tssr || 0;
+		var rb = 0;
+		(object.tssb > 0 && object.tssr > 0) ? rb = (object.tssb/object.tssr).toFixed(2) : rb = 0;
+		var tss = Math.round((object.tsss+object.tssb+object.tssr)/7);
+		if (rb < 2) {
+			jQuery('.summary_session_'+object.row+'_c').html('ajuste: ↑ B o ↓ R');//Tabla 2
+			jQuery('.summary_session_'+object.row+'_s').html('↑ B/R ↓ → <span id="br_'+object.row+'_s">'+rb+'</span> | <span id="tp_'+object.row+'_s">'+tss+'</span> TSS/día');//Tabla 3
+		}
+		if (rb == 2) {
+			jQuery('.summary_session_'+object.row+'_c').html('ajuste: n/a');//Tabla 2
+			jQuery('.summary_session_'+object.row+'_s').html('B/R → <span id="br_'+object.row+'_s">'+rb+'</span> | <span id="tp_'+object.row+'_s">'+tss+'</span> TSS/día');//Tabla 3
+		}
+		if (rb > 2) {
+			jQuery('.summary_session_'+object.row+'_c').html('ajuste: ↓ B o ↑ R');//Tabla 2
+			jQuery('.summary_session_'+object.row+'_s').html('↓ B/R ↑ → <span id="br_'+object.row+'_s">'+rb+'</span> | <span id="tp_'+object.row+'_s">'+tss+'</span> TSS/día');//Tabla 3
+		}
+		// T A B L A   2
+		jQuery('.br_'+object.row+'_c').html(rb);
+		jQuery('.tp_'+object.row+'_c').html(tss);
+		jQuery('.t_tsss_'+object.row+'_c').html(object.tsss); jQuery('.t_tssb_'+object.row+'_c').html(object.tssb); jQuery('.t_tssr_'+object.row+'_c').html(object.tssr);
+	}
+	// T A B L A   2
+	if (type == 2) {
+		jQuery('.s_cant'+object.row).html(object.cans); jQuery('.b_cant'+object.row).html(object.canb); jQuery('.r_cant'+object.row).html(object.canr);
+		jQuery('.s_med'+object.row).html(object.unis); jQuery('.b_med'+object.row).html(object.unib); jQuery('.r_med'+object.row).html(object.unir);
+		(object.cans > 0) ? jQuery('.s_res'+object.row).html('60 '+object.unis) : jQuery('.s_res'+object.row).html('0 '+object.unis);
+		jQuery('.b_res'+object.row).html(object.canb+' '+object.unib);
+		jQuery('.r_res'+object.row).html(object.canr+' '+object.unir);
+		/////
+		jQuery('.s_tss'+object.row).html(object.tsss); jQuery('.b_tss'+object.row).html(object.tssb); jQuery('.r_tss'+object.row).html(object.tssr);
+	}
+	if (type == 0 || type == 1 || type == 2) {
+		var total_weeks = document.getElementById("weeks_train").value;
+	recalculate_totals(total_weeks);
+	}
+	if (type == 3) {
+		for (var i=1; i <= object.total; i++) {
+			jQuery("#"+i+"_1_1").html(object[i+'_1_1']); jQuery("#"+i+"_1_2").html(object[i+'_1_2']); jQuery("#"+i+"_1_3").html(object[i+'_1_3']);
+			jQuery("#"+i+"_2_1").html(object[i+'_2_1']); jQuery("#"+i+"_2_2").html(object[i+'_2_2']); jQuery("#"+i+"_2_3").html(object[i+'_2_3']);
+			jQuery("#"+i+"_3_1").html(object[i+'_3_1']); jQuery("#"+i+"_3_2").html(object[i+'_3_2']); jQuery("#"+i+"_3_3").html(object[i+'_3_3']);
+			jQuery("#"+i+"_4_1").html(object[i+'_4_1']); jQuery("#"+i+"_4_2").html(object[i+'_4_2']); jQuery("#"+i+"_4_3").html(object[i+'_4_3']);
+			jQuery("#"+i+"_5_1").html(object[i+'_5_1']); jQuery("#"+i+"_5_2").html(object[i+'_5_2']); jQuery("#"+i+"_5_3").html(object[i+'_5_3']);
+			jQuery("#"+i+"_6_1").html(object[i+'_6_1']); jQuery("#"+i+"_6_2").html(object[i+'_6_2']); jQuery("#"+i+"_6_3").html(object[i+'_6_3']);
+			jQuery("#"+i+"_7_1").html(object[i+'_7_1']); jQuery("#"+i+"_7_2").html(object[i+'_7_2']); jQuery("#"+i+"_7_3").html(object[i+'_7_3']);
+			jQuery("#"+i+"_summary").html(object['data_'+i]);
+
+			jQuery("#"+i+"_1_1_2").html(object[i+'_1_1']); jQuery("#"+i+"_1_2_2").html(object[i+'_1_2']); jQuery("#"+i+"_1_3_2").html(object[i+'_1_3']);
+			jQuery("#"+i+"_2_1_2").html(object[i+'_2_1']); jQuery("#"+i+"_2_2_2").html(object[i+'_2_2']); jQuery("#"+i+"_2_3_2").html(object[i+'_2_3']);
+			jQuery("#"+i+"_3_1_2").html(object[i+'_3_1']); jQuery("#"+i+"_3_2_2").html(object[i+'_3_2']); jQuery("#"+i+"_3_3_2").html(object[i+'_3_3']);
+			jQuery("#"+i+"_4_1_2").html(object[i+'_4_1']); jQuery("#"+i+"_4_2_2").html(object[i+'_4_2']); jQuery("#"+i+"_4_3_2").html(object[i+'_4_3']);
+			jQuery("#"+i+"_5_1_2").html(object[i+'_5_1']); jQuery("#"+i+"_5_2_2").html(object[i+'_5_2']); jQuery("#"+i+"_5_3_2").html(object[i+'_5_3']);
+			jQuery("#"+i+"_6_1_2").html(object[i+'_6_1']); jQuery("#"+i+"_6_2_2").html(object[i+'_6_2']); jQuery("#"+i+"_6_3_2").html(object[i+'_6_3']);
+			jQuery("#"+i+"_7_1_2").html(object[i+'_7_1']); jQuery("#"+i+"_7_2_2").html(object[i+'_7_2']); jQuery("#"+i+"_7_3_2").html(object[i+'_7_3']);
+		}
+		jQuery('.session_trains').css("height", "39px");
+		jQuery('#sessions_table_div').html(extra_info);
+	}
+}
 /////////
 /////////
 /////////
