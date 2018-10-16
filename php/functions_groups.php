@@ -10,6 +10,8 @@
 	sajax_export("generate_extra_weeks_event");
 	sajax_export("save_blocked_event_week");//Bloqueo de grupos
 	sajax_export("del_block_event");	//Eliminado de bloque de grupos
+	sajax_export("save_secundary_evento_like_master");
+	sajax_export("load_groups_withoutassign");
 
   	// / / / / / / / / /
 	function get_events_form(){
@@ -455,7 +457,34 @@
             return "35@-@".$delete_gb."@-@".$row."-|-".$id_e."-|-".$week."-|-".$name;
       }
 	// / / / / / / / / /
+	function save_secundary_evento_like_master($id_event,$name_new_template,$id_level){
+            //return '7@-@'.$header.$table.'@-@'.$cols_hide; //return $id_event;
+            $change_event = 0;
+            $new_template = $change_trainigs = $change_assignmet = 0;
+            $new_template = insert_from_query('`Events`', 
+                                       'name_e, date_e, weeks, type, notes, master, temporary',
+                                       'SELECT "'.$name_new_template.'","0000-00-00",weeks,type,notes,"1","0" FROM `Events` WHERE id_e="'.$id_event.'"');
+            if (intval($new_template) > 0) {
+                  $change_trainigs  = update_gral('`Trainings`', 'event="'.$new_template.'"', 'event="'.$id_event.'" AND level="'.$id_level.'"');
+                  if (intval($change_trainigs) == 1) {
+                        $change_assignmet = update_gral('`Assignments`', 'id_m="'.$new_template.'"', 'id_e="'.$id_event.'" AND level_e="'.$id_level.'"');
+                  }
+            }
+            if (intval($new_template) > 0 && intval($change_trainigs) > 0 && intval($change_assignmet) > 0) {
+                  $change_event = 1;
+            }
+            return '18@-@'.$change_event.'@-@';
+      }
 	// / / / / / / / / /
+	function load_groups_withoutassign(){
+/* &&& content = data[0]; id_or_class = data[1]; add_info = data[2];78787878 */
+      $select = $events = '';
+      $select = "&nbsp;&nbsp;&nbsp;".'<span id="span_name_event">';
+      $select .= build_select_db('`Events` AS e', 'e.name_e', 'e.name_e', 'name_event', '', 4, '(SELECT COUNT(*) FROM Assignments WHERE id_e=e.id_e) = 0', 'width: 40%;', '', '', '', 0).'</span>';
+
+      $select .= '<br>&nbsp;&nbsp;&nbsp;<span id="btn_manual_name"><button class="btn btn-primary" type="button" onclick="change_span_name_event(); return false;">Asignar nombre manual</button></span><br>';
+      return $select.'&&&#value_name_event&&&0';
+}
 	// / / / / / / / / /
 	// / / / / / / / / /
 	// / / / / / / / / /
