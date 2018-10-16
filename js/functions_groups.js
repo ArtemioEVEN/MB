@@ -95,3 +95,7 @@ function save_secundary_evento_like_master(){
     }else{ jQuery().toastmessage('showErrorToast', 'Ninguna modificación realizada...'); }
 }
 function load_groups_withoutassign(){ x_load_groups_withoutassign(0, Content_universal); }
+function change_span_name_event(){
+	jQuery('#span_name_event').html('&nbsp;&nbsp;<input type="text" id="name_event" style="font-size: 25px;"><sup title="Cancelar entrada manual" style="cursor:pointer;" onclick="load_groups_withoutassign(); return false;"><span style="color:red; font-size:15px; padding:0 0 0 5px;"><b>x</b></span></sup>');
+	jQuery('#btn_manual_name').html('<br><span style="color:red; font-size:15;"><b>Nota: </b></span><span style="font-size:15;"><b> El nuevo Grupo Secundario será guardado con este nombre.</b></span>');
+}
