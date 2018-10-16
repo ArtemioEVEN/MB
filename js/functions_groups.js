@@ -85,3 +85,13 @@ function get_block_event_info(row){
 	x_save_blocked_event_week(id_e,wk_e,nt_e,row, Content_process);
 }
 function del_block_event(id_gb,row){ x_del_block_event(id_gb,row, Content_process); }
+function save_secundary_evento_like_master(){
+	var new_name = document.getElementById('new_name_to_temp_sec').value;
+	if(confirm("Deseas guardar este Evento Secundario como un Template llamado "+new_name+"? (Una vez que lo hagas, no podrás modificarlo mas desde aqui)")){
+        //Si guardas esta información como un Evento Secundario, al pasar la fecha del Evento Principal, este evento será eliminado y no podrás ver mas informacón al respecto, deseas continuar?
+        var id_event = document.getElementById('name_master_sel').value;
+        var id_level = document.getElementById('level_master').value;
+        x_save_secundary_evento_like_master(id_event,new_name,id_level, Content_process);
+    }else{ jQuery().toastmessage('showErrorToast', 'Ninguna modificación realizada...'); }
+}
+function load_groups_withoutassign(){ x_load_groups_withoutassign(0, Content_universal); }
