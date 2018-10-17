@@ -99,3 +99,23 @@ function change_span_name_event(){
 	jQuery('#span_name_event').html('&nbsp;&nbsp;<input type="text" id="name_event" style="font-size: 25px;"><sup title="Cancelar entrada manual" style="cursor:pointer;" onclick="load_groups_withoutassign(); return false;"><span style="color:red; font-size:15px; padding:0 0 0 5px;"><b>x</b></span></sup>');
 	jQuery('#btn_manual_name').html('<br><span style="color:red; font-size:15;"><b>Nota: </b></span><span style="font-size:15;"><b> El nuevo Grupo Secundario será guardado con este nombre.</b></span>');
 }
+function delete_events_past(){ x_delete_events_past(0, Content_general); }
+function confirm_delete_event(id_event){
+	if(confirm("Se eliminará la información relacionada con este Evento, deseas continuar?")) { x_delete_event(id_event, Content_process); }else{ jQuery().toastmessage('showErrorToast', 'Eliminación Cancelada...'); }
+}
+function confirm_deallocate_level(id_event, level_event, id_row){
+	if (confirm("Se removera el Template asosciado en este Nivel, deseas continuar?")) { x_deallocate_level(id_event,level_event,id_row, Content_process); }else{ jQuery().toastmessage('showErrorToast', 'Remoción Cancelada...'); }
+}
+function check_day_date(date){ x_check_day_date(date, Content_universal);/*content&&&id_or_class*/ }
+function save_notes_temporary_event(){
+	if (confirm("Se Sustituirán las notas actuales con las nuevas, Deseas Continuar?")) {
+		var id_event = document.getElementById('name_master_sel').value;
+		var notes_ev = document.getElementById('notes_event').value;
+		x_save_notes_temporary_event(id_event,notes_ev, Content_process);
+	}else{ jQuery().toastmessage('showErrorToast', 'Ninguna modificación realizada...'); }
+}
+function change_cicle_week_temp(value,row){
+	var id_event = document.getElementById('name_master_sel').value;
+	var id_level = document.getElementById('level_master').value;
+	x_change_cicle_week_temp(id_event,id_level,value,row, Content_process);
+}
