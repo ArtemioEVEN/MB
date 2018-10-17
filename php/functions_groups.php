@@ -13,6 +13,12 @@
 	sajax_export("del_block_event");	//Eliminado de bloque de grupos
 	sajax_export("save_secundary_evento_like_master");
 	sajax_export("load_groups_withoutassign");
+	sajax_export("delete_event"); //-Para eliminar grupos/eventos
+	sajax_export("delete_events_past");//Elimina grupos/eventos una vez que se carga por primera vez la sesion
+      	sajax_export("deallocate_level"); //-Para desasignar el nivel de un grupo/evento
+      	sajax_export("check_day_date"); //-Para revisar si una fecha determinada(parametro) es o no domingo
+      	sajax_export("save_notes_temporary_event"); //-Para guardar notas de grupos/eventos temporales
+      	sajax_export("change_cicle_week_temp"); //-Para guardar ciclos semanales de manera independiente
 
   	// / / / / / / / / /
 	function get_events_form(){
@@ -487,6 +493,180 @@
       return $select.'&&&#value_name_event&&&0';
 }
 	// / / / / / / / / /
+	function delete_event($id_event){
+      $evnt = select_gral('`Events`', 'name_e', 'id_e="'.$id_event.'"', 'id_e');
+      foreach ($evnt as $key) { $evnt = $key[0]; }
+      $res = 0;
+      $delete_trainings = $delete_event = $delete_assignmets = $delete_note = 0;
+      $delete_trainings = delete_gral('`Trainings`', "event='".$id_event."'");//Elimina entrenamientos asociados a el evento
+      if ($delete_trainings == 1) {
+            $delete_event = delete_gral('`Events`', "id_e='".$id_event."'");//Elimina el evento
+            if ($delete_event == 1) {
+                  $delete_assignmets = delete_gral('`Assignments`', "id_e='".$id_event."'");//Elimina su asignacion
+                  if ($delete_assignmets == 1) {
+                        $delete_note = delete_gral('`Notes`', "id_e='".$id_event."'");//Elimina las notas que puedan estar relacionadas con el evento
+                        # CODIGO NUEVO AL 10-11-16
+                        //if ($delete_note != 1) { $delete_note = 0; } # CODIGO ANTERIOR
+                        if ($delete_note == 1) {
+                              $delete_session_note = delete_gral('`Session_notes`', "id_e='".$id_event."'");//Se elimnan las notas de session *$id_e* 
+                              if ($delete_session_note == 1) {
+                                    $delete_extra_notes = delete_gral('`Session_notes_extra`', "id_e='".$id_event."'");//Se eliminan las notas  *$id_e* heredadas de templates o evento padre
+                                    if ($delete_extra_notes != 1) { $delete_extra_notes = 0; }
+                              }
+                        }
+                        # TERMINA CODIGO NUEVO
+                  }else{ $delete_assignmets = 0; }
+            }else{ $delete_event = 0; }
+      }else{ $delete_trainings = 0; }
+      $res = $delete_trainings+$delete_event+$delete_assignmets+$delete_note;
+      # Activity_code = 12
+      $message = "El usuario *".$_SESSION['name_u']."* eliminó el Grupo: *".$evnt."*";
+      log_mb_register($message, "12");
+      return '14@-@'.$res.'@-@0';
+}
+	// / / / / / / / / /
+	function delete_events_past(){
+      $actual_date = date("Y-m-d", strtotime('sunday this week'));
+      //$post_w_date = date("Y-m-d", strtotime("+7 day"));//ORIGINAL
+      $post_w_date = date("Y-m-d", strtotime("+7 day sunday this week"));//ORIGINAL
+      $past_events = select_gral('`Events`','id_e,name_e,date_e,type,temporary',
+                                 'master="0" AND type NOT IN (11,12,13) AND datediff("'.$post_w_date.'",date_e) > 21
+                                  AND id_e NOT IN ("168", "194", "299", "297", "149", "325", "208", "177", "224", "125", "260", "282", "235")','name_e,date_e');//MODIFICADO //antes 7
+      $id_e = $name_e = $date_e = $type_e = $temp_e = '';
+      $events_del = 0;
+      if ($past_events == true) {
+            $i = 0; $event_list = '';
+            foreach ($past_events as $key) {
+                  $id_e =   $key[0]; 
+                  $name_e = $key[1];
+                  $date_e = $key[2];
+                  $type_e = $key[3];
+                  $temp_e = $key[4];
+                  
+                  $temp_temp = select_gral('`Assignments` AS A INNER JOIN `Temporal_templates` AS TT','A.id_m','A.id_e="'.$id_e.'"','A.id_a LIMIT 1');
+                  #SELECT A.id_m FROM `Assignments` AS A INNER JOIN `Temporal_templates` AS TT WHERE A.id_e=1676 ORDER BY `id_a` DESC
+                  if ($temp_temp == true) { foreach ($temp_temp as $t_t) { $temp_temp = $t_t[0]; } if ($temp_temp == "") { $temp_temp = 0; } }
+                  ///// - - - - - - - - - - -
+                  $delete_summsended = $delete_trainings = $delete_event = $delete_assignmets = $delete_note = 0;
+                  $delete_trainings_t = $delete_template = $delete_assignmets_t = $delete_note_t = 0;
+                  $delete_summsended = delete_gral('`Summ_sended`', "id_e='".$id_e."'");
+                  if ($delete_summsended == 1) {
+                        $delete_trainings = delete_gral('`Trainings`', "event='".$id_e."'");//Elimina entrenamientos asociados a el evento
+                        if ($delete_trainings == 1) {
+                              $delete_event = delete_gral('`Events`', "id_e='".$id_e."'");//Elimina el evento
+                              if ($delete_event == 1) {
+                                    $delete_assignmets = delete_gral('`Assignments`', "id_e='".$id_e."'");//Elimina sus asignaciones
+                                    if ($delete_assignmets == 1) {
+                                          $delete_note = delete_gral('`Notes`', "id_e='".$id_e."'");//Elimina las notas relacionadas con el evento
+                                          if ($delete_note == 1) {
+                                                $delete_session_note = delete_gral('`Session_notes`', "id_e='".$id_e."'");//Se elimnan las notas de session
+                                                if ($delete_session_note == 1) {
+                                                      $delete_extra_notes = delete_gral('`Session_notes_extra`', "id_e='".$id_e."'");//Se eliminan las notas heredadas de templates o evento padre
+                                                      if ($delete_extra_notes != 1) { $delete_extra_notes = 0; }
+                                                }
+                                          }
+                                          $events_del++;
+                                    }else{ $delete_assignmets = 0; }
+                              }else{ $delete_event = 0; }
+                        }else{ $delete_trainings = 0; }
+                  }else{ $delete_summsended = 0; }
+                  $i++;
+                  $event_list .= $i.".- Evento: *".utf8_encode($name_e)."* Fecha del evento: *".$date_e."* ID:*".$id_e."*\n";
+            }
+            if (count($past_events) > 0) {
+                  $message ="*_GRUPOS ELIMINADOS en el MB:_*\n".$event_list;
+                  slack_message('@artemio', 'Alertas MB V2', $message, 'outbox_tray');//#pruebas_artemio
+            }
+      }//else echo "No hay eventos pasados...";
+      # # # # # Identificando eventos por vencerse
+      $coming_events = select_gral('`Events`','id_e,name_e,date_e,type,temporary',
+                                   'master="0" AND type NOT IN (11,12,13) AND (datediff("'.$post_w_date.'",date_e) > 0 AND datediff("'.$post_w_date.'",date_e) <= 21)',
+                                   'name_e,date_e');
+      if ($coming_events == true) {
+            $i = 0; $event_list = '';
+            foreach ($coming_events as $key) {
+                  $id_e =   $key[0]; 
+                  $name_e = $key[1];
+                  $date_e = $key[2];
+                  $type_e = $key[3];
+                  $temp_e = $key[4];
+                  $i++;
+                  $event_list .= $i.".- Grupo: *".utf8_encode($name_e)."* Fecha del evento: *".$date_e." ID:*".$id_e."*\n";
+            }
+            if (count($coming_events) > 0) {
+                  $message = "*_Grupos que estan próximos a ser eliminados en el MB:_*\n".$event_list;
+                  //slack_message('#desarrollo', 'Alertas MB', $message, 'timer_clock');//#pruebas_artemio
+            }
+      }
+      # # # # # # # # # # # # # # # # # # # # # # #
+      $_SESSION['del_events'] = 1;
+}
+	// / / / / / / / / /
+	function deallocate_level($id_event,$level_event,$id_row){
+      $res = 0;
+      $remove_level = delete_gral('`Assignments`', "id_e='".$id_event."' AND level_e='".$level_event."'");
+      $res = $remove_level;
+      //// V e r i f i c a r   q u e   s e a   u n   e v e n t o   t e m p o r a l ////
+      $is_temporary = select_gral('`Events`','temporary','id_e="'.$id_event.'"','id_e');
+      if ($is_temporary == true) {
+            foreach ($is_temporary as $temporary) { $temp = intval($temporary[0]); }
+            if ($temp > 0) {
+                  $exist = select_gral('`Trainings`','COUNT(*)','event="'.$id_event.'" AND level="'.$level_event.'"','event');
+                  if ($exist == true) {
+                        foreach ($exist as $key) { $trains = intval($key[0]); }
+                        if ($trains > 0) {
+                              $delete_trains = delete_gral('`Trainings`','event="'.$id_event.'" AND level="'.$level_event.'"');
+                              if ($delete_trains == 1) {
+                                    $exist_more = select_gral('`Trainings`','COUNT(*)','event="'.$id_event.'"','event');
+                                    if ($exist_more == true) {
+                                          foreach ($exist_more as $how) { $more_trains = intval($how[0]); }
+                                          if ($more_trains == 0) {
+                                                $delete_event = delete_gral('`Events`', "id_e='".$id_event."'");
+                                                $delete_notes_extra = delete_gral('`Session_notes_extra`',"id_e='".$id_event."'");//eventos secundarios
+                                          }
+                                    }
+                              }
+                        }
+                  }
+            }
+      }
+      //// T e r m i n a   v e r i f i c a c i o n
+      return '15@-@'.$res.'@-@'.$id_row;
+}
+	// / / / / / / / / /
+	function check_day_date($date){
+            $message = '';
+            $date_aux = $date;
+            $date = strtotime($date);
+            $date = date('l', $date);
+            $day_span = translate_day($date);
+            if ($date != 'Sunday') {
+                  $message = '<span style="color:#DF0101; font-size:12px;">';
+                  $message .= 'Los eventos normalmente son en día <b>Domingo</b>, solo por precaución, revisa que tu fecha sea la correcta...';
+                  $message .= '<br>';
+                  $message .= 'El dia que has elegido es: <b>'.$day_span.' '.date('d M', strtotime($date_aux)).'</b>';
+                  $message .= '</span>';
+            }else{ $message = ''; }
+            return $message.'&&&#load_nothing';//content&&&id_or_class  
+      }
+	// / / / / / / / / /
+	function save_notes_temporary_event($id_event,$notes_ev){
+            $update_notes = update_gral('`Events`', 'notes="'.$notes_ev.'"', 'id_e="'.$id_event.'"');
+            if ($update_notes > 0) {
+                  $event = "";
+                  $name_event = select_gral('`Events`', 'name_e', 'id_e="'.$id_event.'"', 'name_e  LIMIT 1');
+                  if ($name_event == true) { foreach ($name_event as $key) { $event = $key[0]; } }else{ $event = $id_event; }
+                  # Activity_code = 3
+                  $message = "El usuario *".$_SESSION['name_u']."* editó la nota del grupo *".$event."*";
+                  log_mb_register($message, "3");
+            }
+            return '21@-@'.$update_notes.'@-@0';
+      }
+	// / / / / / / / / /
+	function change_cicle_week_temp($id_event,$id_level,$new_cicle,$week){
+            $update_cicle = update_gral('`Trainings`', 'week_cicle="'.$new_cicle.'"', 'event="'.$id_event.'" AND level="'.$id_level.'" AND week="'.$week.'"');
+            return '23@-@'.$update_cicle.'@-@0';
+      }
 	// / / / / / / / / /
 	// / / / / / / / / /
 ?>
