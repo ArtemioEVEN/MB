@@ -1953,7 +1953,211 @@
             return $id_temporary.'|@|'.$trains_event.'|@|'.$type;
       }
       //////////////
+	function save_all_data_db_secundary_event($option,$id_event,$id_level,$name_event,$cicles_weeks,$id_event_t,$sessions,$num_weeks,$notes,$id_template, $id_level_temp){
+            //option,id_event,name_event,cicles_weeks,sessions
+            //$opc, $id_event,$id_level,$num_weeks, $name_event,$type_master,$notes_event, $cicles_weeks,$lrs,$weeks,$sessions,$cants,$units,$tsss
+            // - - - - - - - - - - - - - - - - - - - - - - -
+            //Obtenemos info del evento Original
+            $event_info = select_gral('`Events`','name_e,date_e,weeks,type','id_e="'.$id_event.'" AND temporary="0"','id_e');
+            if ($event_info == true) {
+                  foreach ($event_info as $data_event) {
+                        $name_e  = $data_event[0];
+                        $date_e  = $data_event[1];
+                        $weeks_e = $data_event[2];
+                        $type_e  = $data_event[3];
+                  }
+            }
+            $weeks_e = $num_weeks;
+            # DONDE $option
+            # 1 - Se generará nuevo evento y se agregaran trainings
+            # 2 - Se agregarán solamente los trainings
+            # 3 - Se agregarán y/o sustituiran trainings
+            # 4 - Se generará un secundario con un nombre repetido,
+            if ($option == 4) {
+                  $aux_name = select_gral('`Events`','id_e','name_e="'.$name_event.'"','id_e LIMIT 1');
+                  if ($aux_name == true) { foreach ($aux_name as $aux_n) { $aux_name = intval($aux_n[0]); } }
+                  if (trim($name_event) == trim($name_e)) { $aux_name = $id_event; } 
+                  delete_gral('`Assignments`', 'id_e="'.$aux_name.'"');
+                  update_gral('`Events`', 'name_e=CONCAT("_",name_e)', 'id_e="'.$aux_name.'"');
+                  #UPDATE Tablename SET Username = Concat('0', Username);
+            }
+            if ($option == 1 || $option == 4) {
+                  $id_event_t = insert_gral('`Events`',
+                                            'name_e, date_e, weeks, type, master, temporary, notes',
+                                            '"'.$name_event.'","'.$date_e.'","'.($weeks_e-1).'","'.$type_e.'","0","'.$id_event.'","'.$notes.'"');
+            }
+            //Se verifica si ya esta asignado, si no se asigna el evento temporal - - - -
+            $assignment_exist_aux = '';
+            $assignment_exist = select_gral('`Assignments`', 'id_a',
+                                            'id_e="'.$id_event_t.'" AND level_e="'.$id_level.'" AND id_m="'.$id_event_t.'" AND level_m="'.$id_level.'"', 'id_a');
+            if ($assignment_exist == true) { foreach ($assignment_exist as $ass_ex) { $assignment_exist_aux = $ass_ex[0]; } }
+            if ($assignment_exist_aux == '') {
+                  $algo = insert_gral('`Assignments`','id_e,level_e,id_m,level_m','"'.$id_event_t.'","'.$id_level.'","'.$id_event_t.'","'.$id_level.'"');
+            }
+            //Termina la verificacion de asignado - - - - - - - - - - - - - - - - - - - -
+            //Se obtienes las sesiones a guardar con el evento
+            $res = $message = $color = $response = '';
+            $cont = $cont_up = $cont_de = 0;
+            // session vars
+            $id_ssn = $session_des = $unit_s = $unit_b = $unit_r = '';
+            $disc_s = $stss = $disc_b = $btss = $disc_r = $rtss = 0;
+            // trainings vars 
+            $id_trn = $session = $event = $level = $week = $week_cicle = $lookup_ref = $day = $session_num = '';
+            $sessions = str_replace(',', '', $sessions);
+            try{
+                  ///SEPARAMOS CADENA A SEMANAS
+                  $sessions_week = explode('@@@', $sessions);
+                  $cicles_weeks  = explode(',', $cicles_weeks);
+                  for ($i=0; $i < $weeks_e; $i++) { //weeks_e+1 sustituyo a $num_weeks
+                        //SEPARAMOS A DIA
+                        $sessions_day  = explode('|||', $sessions_week[$i]);
+                        for ($j=0; $j < 7; $j++) { // 7 es el numero de dias de sessiones
+                              ///SEAPRAMOS A SESSION
+                              $session_individual = explode('///', $sessions_day[$j]);
+                              for ($k=0; $k < 3; $k++) { // 3 Es el numero de sesiones por dia
+                                    $key_ssn = $key_trn = '';
+                                    $session_des = $session_individual[$k];
+                                    // EVENTO: 6,NIVEL: 3,SEMANA: 1,CICLO SEMANAL: ,LOOKUP REF:,DIA:1,SESSION_NUM:1,SESSION:B.20.Z1,CAN S:0,UNI S:mts,TSS S:0,CAN B:20,UNI B:min,TSS B:23,CAN R:0,UNI R:min,TSS R:0
+                                    ///VARIABLES PARA LA TABLA "Sessions"
+                                    // (id_ssn) session_des, disc_s, unit_s, stss, disc_b, unit_b, btss, disc_r, unit_r, rtss
+                                    if ($session_des != '') {//Si la session no esta vacia
+                                          $cants = session_interpretation($session_des);/// return distance_s-units,distance_b-unitb,distance_r-unitr
+                                          $cants = explode(',', $cants);
+                                          $cants[0] = explode('-', $cants[0]);
+                                          $cants[1] = explode('-', $cants[1]);
+                                          $cants[2] = explode('-', $cants[2]);
+                                          $disc_s = $cants[0][0]; $disc_b = $cants[1][0]; $disc_r = $cants[2][0];
+                                          $unit_s = $cants[0][1]; $unit_b = $cants[1][1]; $unit_r = $cants[2][1];
+                                          //cantS-unit, cantB-unit, cantR-unit
+                                          $tsss = session_calculate($disc_s.'-'.$unit_s.','.$disc_b.'-'.$unit_b.','.$disc_r.'-'.$unit_r); //return $calc_s.','.$calc_b.','.$calc_r;
+                                          $tsss = explode(',', $tsss);
+                                          $stss = $tsss[0]; $btss = $tsss[1]; $rtss = $tsss[2];
+                                          $session_des = str_replace('mmaass', '+', $session_des);
+                                          $session_des = str_replace('aarroobbaa', '@', $session_des);
+                                          $id_ssn = select_gral('`Sessions`', 
+                                                                 'id_ssn',
+                                                                 "session_desc='".$session_des."' AND disc_s='".$disc_s."' AND unit_s='".$unit_s."' AND stss='".$stss."' AND disc_b='".$disc_b."' AND unit_b='".$unit_b."' AND btss='".$btss."' AND disc_r='".$disc_r."' AND unit_r='".$unit_r."' AND rtss='".$rtss."'",
+                                                                 'id_ssn');// tabla, campos, filtros, orden
+                                    
+                                          if($id_ssn == true){ foreach ($id_ssn as $key) { $key_ssn = $key[0]; } }
+                                          if ($key_ssn == '') {//La session no existe
+                                                $insert_new_session = insert_gral('`Sessions`',
+                                                                                  'session_desc, disc_s, unit_s, stss, disc_b, unit_b, btss, disc_r, unit_r, rtss',
+                                                                                  '"'.$session_des.'","'.$disc_s.'","'.$unit_s.'","'.$stss.'","'.$disc_b.'","'.$unit_b.'","'.$btss.'","'.$disc_r.'","'.$unit_r.'","'.$rtss.'"');
+                                                $key_ssn = $insert_new_session; //echo "Se inserto la session: ".$insert_new_session.'|-|';
+                                          }
+                                          ///Variables para la Tabla "Trainings" // (id_trn) session, event, level, week, week_cicle, lookup_ref, day, session_num
+                                          $info_train = $session_train = '';//id_trn
+                                          $info_train = select_gral('`Trainings`',
+                                                                'id_trn,session',
+                                                                "event='".$id_event_t."' AND level='".$id_level."' AND week='".($i+1)."' AND week_cicle='".$cicles_weeks[$i]."' AND day='".($j+1)."' AND session_num='".($k+1)."'",
+                                                                'id_trn');
+                                          if ($info_train == true) { foreach ($info_train as $key) { $key_trn = $key[0]; $session_train = $key[1]; } }
+                                          //Si la consulta retorna vacio, no hay sesion agregada en esa posicion del template (en Trainings)
+                                          if ($key_trn == '') {
+                                                $insert_new_training = insert_gral('`Trainings`',
+                                                                             'session, event, level, week, week_cicle, day, session_num',
+                                                                             '"'.$key_ssn.'","'.$id_event_t.'","'.$id_level.'","'.($i+1).'","'.$cicles_weeks[$i].'","'.($j+1).'","'.($k+1).'"');
+                                                $cont++;
+                                          }else{//Si hay una sesion asignada
+                                                if ($session_train != $key_ssn) {
+                                                      $update_training = update_gral('`Trainings`',
+                                                                                 //'date_e="'.date("Y-m-d", strtotime('sunday this week')).'"',
+                                                                                 'session="'.$key_ssn.'"',
+                                                                                 "event='".$id_event_t."' AND level='".$id_level."' AND week='".($i+1)."' AND week_cicle='".$cicles_weeks[$i]."' AND day='".($j+1)."' AND session_num='".($k+1)."'");
+                                                      $cont_up++;
+                                                }
+                                          }
+                                    }else{
+                                          $info_train = $key_trn = '';//id_trn
+                                          $info_train = select_gral('`Trainings`',
+                                                                'id_trn',
+                                                                "event='".$id_event_t."' AND level='".$id_level."' AND week='".($i+1)."' AND week_cicle='".$cicles_weeks[$i]."' AND day='".($j+1)."' AND session_num='".($k+1)."'",
+                                                                'id_trn');
+                                          if ($info_train == true) { foreach ($info_train as $key) { $key_trn = $key[0]; } }
+                                          if ($key_trn != '') {
+                                                $delete_train = delete_gral('`Trainings`',
+                                                                            "event='".$id_event_t."' AND level='".$id_level."' AND week='".($i+1)."' AND week_cicle='".$cicles_weeks[$i]."' AND day='".($j+1)."' AND session_num='".($k+1)."'");
+                                                if ($delete_train == 1) {
+                                                      $cont_de++;
+                                                }
+                                          }
+                                    }
+                              }
+                        }
+                  }
+                  $message = 'Se guardó la Información ('.$cont.' sesiones nuevas, '.$cont_up.' sesiones modificadas, '.$cont_de.' sesiones eliminadas)...'; $color = 'green';
+                  ## Se buscan Sessiones extra de este evento en la tabla, si encuentra las elimina y agrega nuevas
+                  $delete_extra_sessions = delete_gral('`Session_notes_extra`', 'id_e="'.$id_event_t.'"');
+                  //$extra_notes_temp = select_gral('`Session_notes`', 'id_ssn_n', 'id_e="'..'" AND id_l="'..'"', 'id_ssn_n');
+                  $extra_notes_temp = insert_from_query('`Session_notes_extra`', 
+                                       'id_ssn_n, id_e',
+                                       'SELECT id_ssn_n,"'.$id_event_t.'" FROM `Session_notes` WHERE id_e="'.$id_template.'" AND id_l="'.$id_level_temp.'"');
+                  $extra_notes_evnt = insert_from_query('`Session_notes_extra`', 
+                                       'id_ssn_n, id_e',
+                                       'SELECT id_ssn_n,"'.$id_event_t.'" FROM `Session_notes` WHERE id_e="'.$id_event.'" AND id_l="'.$id_level.'"');
+                  //$extra_notes_temp = select_gral('`Session_notes`', 'id_ssn_n', 'id_e="'..'" AND id_l="'..'"', 'id_ssn_n');
+                  ## Termina busqueda de sesiones extra
+                  $response = '1';
+            } catch (Mandrill_Error $e) { $message = 'Error al insertar sessiones...'; $color   = 'red'; $response = '0'; }
+            $res = $message;
+            return '22@-@'.$res.'@-@'.$id_event_t.','.$id_level.','.$option.','.$id_event.','.$name_event;
+      }
       //////////////
+	function load_db_sessions_values($weeks, $id_event, $id_level){
+		$res = $parametro_ad = '';
+        if ($id_level != 0) {
+        	$trainings_week = '';
+        	$i = $j = $k = $l = 0;
+        	$sessions = $cants_s = $units_s = $tsss_s = $cants_b = $units_b = $tsss_b = $cants_r = $units_r = $tsss_r = $cw = $lr = array();
+	        $weeks = intval($weeks+2);
+        	for ($i=1; $i <= $weeks; $i++) { 
+        		$trainings_week = get_sessions_week($id_event, $id_level, $i);
+        		//print_r($trainings_week); echo "<.............----------.............------......------......-----....---...>";
+        		$l = intval($i-1);
+				if ($trainings_week == true) {
+					foreach ($trainings_week as $key) {
+						$cw[$l]  = $key[0];//cicle week
+						$lr[$l]  = $key[1];//lookup reference
+						for ($j=2; $j <= 22; $j++) { //Los entrenamientos por semana
+							$k = intval($j-2);
+							$l = intval($i-1);
+							if ($key[$j] != '') {
+								$key[$j] = explode('|', $key[$j]);
+								//antes j era 0
+								$sessions[$l][$k] = $key[$j][0];
+								$cants_s[$l][$k]  = $key[$j][1]; $units_s[$l][$k]  = $key[$j][2]; $tsss_s[$l][$k]   = $key[$j][3];
+								$cants_b[$l][$k]  = $key[$j][4]; $units_b[$l][$k]  = $key[$j][5]; $tsss_b[$l][$k]   = $key[$j][6];
+								$cants_r[$l][$k]  = $key[$j][7]; $units_r[$l][$k]  = $key[$j][8]; $tsss_r[$l][$k]   = $key[$j][9];
+							}else{
+								$sessions[$l][$k] = '';
+								$cants_s[$l][$k]  = ''; $units_s[$l][$k]  = ''; $tsss_s[$l][$k]   = '';
+								$cants_b[$l][$k]  = ''; $units_b[$l][$k]  = ''; $tsss_b[$l][$k]   = '';
+								$cants_r[$l][$k]  = ''; $units_r[$l][$k]  = ''; $tsss_r[$l][$k]   = '';
+							}
+						}
+					}
+				}else{
+					$cw[$l]  = '';
+					$lr[$l]  = '';
+					for ($j=2; $j <= 22; $j++) { //Los entrenamientos por semana
+						$k = intval($j-2);
+						$l = intval($i-1);
+						$sessions[$l][$k] = '';
+						$cants_s[$l][$k]  = ''; $units_s[$l][$k]  = ''; $tsss_s[$l][$k]   = '';
+						$cants_b[$l][$k]  = ''; $units_b[$l][$k]  = ''; $tsss_b[$l][$k]   = '';
+						$cants_r[$l][$k]  = ''; $units_r[$l][$k]  = ''; $tsss_r[$l][$k]   = '';
+					}
+				}
+        	}
+        	//print_r($cw); echo "<hr>"; print_r($lr); echo "<hr>"; print_r($sessions); echo "<hr>";
+        	$res = json_encode($sessions).'&&&'.json_encode($cants_s).'&&&'.json_encode($units_s).'&&&'.json_encode($tsss_s).'&&&'.json_encode($cants_b).'&&&'.json_encode($units_b).'&&&'.json_encode($tsss_b).'&&&'.json_encode($cants_r).'&&&'.json_encode($units_r).'&&&'.json_encode($tsss_r).'&&&'.json_encode($cw).'&&&'.json_encode($lr).'&&&'.$weeks;//json_encode($tss)
+	    }else{
+	    	$res = '';
+	    }
+	    $origen = 2;
+	    return $origen.'@-@'.$res.'@-@'.$parametro_ad; //origen@-@response@-@paramtr
+	}
       //////////////
       //////////////
       //////////////
