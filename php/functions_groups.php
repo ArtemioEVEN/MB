@@ -1,9 +1,10 @@
 <?php
+	# GROUPS, SECUNDARY GROUPS
 	date_default_timezone_set("America/Mexico_City");
   
-  	sajax_export("get_events_form");	//Obtiene forma para insertar Eventos o Masters en DB
-	sajax_export("get_events_table");	//Obtiene los Eventos o Masters disponibles en DB
-	sajax_export("save_new_event");		//Guarda un Evento o un Master en DB
+  	sajax_export("get_events_form");	//Obtiene forma para insertar Grupos o Templates en DB
+	sajax_export("get_events_table");	//Obtiene los Grupos o Templates disponibles en DB
+	sajax_export("save_new_event");		//Guarda un Grupos o un Templates en DB
 	sajax_export("get_events_table_editable");
 	sajax_export("get_event_form_edit");
 	sajax_export("edit_event");
