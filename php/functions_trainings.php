@@ -3,7 +3,7 @@
 
       sajax_export("get_events_form_add_trains");   //Obtiene Wisard para asignar entrenamiento a Evento o Master
       sajax_export("get_events_form_add_trains__"); //Obtiene Wisard para asignar entrenamiento a Evento o Master
-	    sajax_export("load_wizard_table_trains");     //Carga tabla de sessiones (resumen)
+      sajax_export("load_wizard_table_trains");     //Carga tabla de sessiones (resumen)
       sajax_export("show_session_training_form");
       sajax_export("calculate_values_session");     //Calcula valor de itensidad tss basado en una cadena de sessiones
       sajax_export("desintegrate_session");         //Regresa los valores y unidades de cada disciplina de una formula dada
@@ -12,6 +12,10 @@
       sajax_export("save_all_data_db_secundary_confirm");//Revisa si el evento secundario existe
       sajax_export("save_all_data_db_secundary_event");
       sajax_export("load_db_sessions_values");
+      sajax_export("save_individual_session"); //-Para guardar sesiones individuales
+      sajax_export("show_event_sessions"); //-Para mostrar el contenido de sessiones en un evento
+      sajax_export("get_all_values_session"); //-Para regresar todos los valores de una session
+      sajax_export("load_discipline_parameters");
 
       //////////////
       function get_events_form_add_trains($type_event,$info_event){//0 = evento, 1 = master
@@ -2159,8 +2163,1080 @@
 	    return $origen.'@-@'.$res.'@-@'.$parametro_ad; //origen@-@response@-@paramtr
 	}
       //////////////
+	function save_individual_session($id_session, $id_event, $id_level, $notes_event, $info_sess){
+#      echo "aqui hay que guardar las sessiones individuales... EVENTO: ".$id_event." NIVEL: ".$id_level." SESSION: ".$id_session;
+      $res = 0;
+      // - - - - Se edita o guardan las notas - - - - //
+      $note_exist = '';
+      $note_exist_aux = '';
+      $id_note = '';
+      if ($notes_event != '') {
+            $note_exist = select_gral('`Notes`','id_n','id_e="'.$id_event.'" AND id_l="'.$id_level.'"','id_n');
+            if ($note_exist == true) {
+                  foreach ($note_exist as $note) {
+                        $note_exist_aux = $note[0];
+                  }
+            }
+            if ($note_exist_aux > 0) {
+                  $id_note = update_gral('`Notes`','note="'.$notes_event.'"','id_e="'.$id_event.'" AND id_l="'.$id_level.'"');
+            }else{
+                  $id_note = insert_gral('`Notes`','id_e, id_l, note','"'.$id_event.'","'.$id_level.'","'.$notes_event.'"');
+            }
+      }
+      // - - - - Se edita o guardan las notas - - - - //
+      ////// - - - - - - - - - - - - - - - - - - - - - ///////
+      //session_des,disc_s,unit_s,stss,disc_b,unit_b,btss,disc_r,unit_r,rtss,cicle_week,lr(valor cualquiera),week,day,session
+      //session_desc+'|-|'+disc_s+'|-|'+unit_s+'|-|'+stss+'|-|'+disc_b+'|-|'+unit_b+'|-|'+btss+'|-|'+disc_r+'|-|'+unit_r+'|-|'+rtss+'|-|'+cicle_week+'|-|'+week+'|-|'+day+'|-|'+session
+      $insert_new_training = 0;
+      $info_sess = explode('|-|', $info_sess);
+      $session_des = $info_sess[0];//$info_sess[]
+      ($info_sess[1] == '') ? $disc_s = '0' : $disc_s = trim($info_sess[1]);
+      ($info_sess[2] == '') ? $unit_s = 'mts' : $unit_s = trim($info_sess[2]);
+      ($info_sess[3] == '') ? $stss = '0' : $stss = trim($info_sess[3]);
+      ($info_sess[4] == '') ? $disc_b = '0' : $disc_b = trim($info_sess[4]);
+      ($info_sess[5] == '') ? $unit_b = 'min' : $unit_b = trim($info_sess[5]);
+      ($info_sess[6] == '') ? $btss = '0' : $btss = trim($info_sess[6]);
+      ($info_sess[7] == '') ? $disc_r = '0' : $disc_r = trim($info_sess[7]);
+      ($info_sess[8] == '') ? $unit_r = 'min' : $unit_r = trim($info_sess[8]);
+      ($info_sess[9] == '') ? $rtss = '0' : $rtss = trim($info_sess[9]);
+
+      $cicle_week = trim($info_sess[10]);
+      $week = trim($info_sess[11]);
+      $day = trim($info_sess[12]);
+      $session = trim($info_sess[13]);
+
+      $type_event = trim($info_sess[14]);
+
+      $key_ssn = '';
+      if ($session_des == '') {//Session Vacia
+            $delete_sessions = delete_gral('`Trainings`',
+                                          "event='".$id_event."' AND level='".$id_level."' AND week='".$week."' AND day='".$day."' AND session_num='".$session."'");
+            if ($delete_sessions == 1) {
+                  $res = 4;
+                  # SE ELIMINA LA NOTA DE LA SESION
+                  $delete_note = delete_gral('`Session_notes`',
+                                    "id_e='".$id_event."' AND id_l='".$id_level."' AND week='".$week."' AND day='".$day."' AND session='".$session."'");
+            }else{ $res = 5; }
+      }
+      if ($session_des != '') {//Si la session no esta vacia
+            $session_des = str_replace('mmaass', '+', $session_des);
+            $id_ssn = select_gral('`Sessions`', 
+                                   'id_ssn',
+                                   "session_desc='".$session_des."' AND disc_s='".$disc_s."' AND unit_s='".$unit_s."' AND stss='".$stss."' AND disc_b='".$disc_b."' AND unit_b='".$unit_b."' AND btss='".$btss."' AND disc_r='".$disc_r."' AND unit_r='".$unit_r."' AND rtss='".$rtss."'",
+                                         'id_ssn');// tabla, campos, filtros, orden
+            if($id_ssn == true){ foreach ($id_ssn as $key) { $key_ssn = $key[0]; } }
+            if ($key_ssn == '') {//La session no existe
+                  $insert_new_session = insert_gral('`Sessions`',
+                                                      'session_desc, disc_s, unit_s, stss, disc_b, unit_b, btss, disc_r, unit_r, rtss',
+                                                      '"'.$session_des.'","'.$disc_s.'","'.$unit_s.'","'.$stss.'","'.$disc_b.'","'.$unit_b.'","'.$btss.'","'.$disc_r.'","'.$unit_r.'","'.$rtss.'"');
+                  $key_ssn = $insert_new_session;
+                  //Se inserto la session: $insert_new_session
+            }//La session ya existe su ID es: $key_ssn
+            # SE ACTUALIZA LA NOTA DE LA SESION
+            $update_note = update_gral('`Session_notes`',
+                              "id_ssn='".$key_ssn."'",
+                              "id_e='".$id_event."' AND id_l='".$id_level."' AND week='".$week."' AND day='".$day."' AND session='".$session."'");
+            $key_trn = '';
+            $id_trn = select_gral('`Trainings`',
+                                  'id_trn',
+                                  "event='".$id_event."' AND level='".$id_level."' AND week='".$week."' AND day='".$day."' AND session_num='".$session."'",
+                                  'id_trn');
+            if ($id_trn == true) { foreach ($id_trn as $key) { $key_trn = $key[0]; } }
+            $id_training = $key_trn;
+            if ($key_trn != '') {
+                  $key_trn = $id_trn = '';
+                  //Esta session ya tiene valores
+                  $id_trn = select_gral('`Trainings`',
+                                          'id_trn',
+                                          "session='".$key_ssn."' AND event='".$id_event."' AND level='".$id_level."' AND week='".$week."' AND week_cicle='".$cicle_week."' AND day='".$day."' AND session_num='".$session."'",
+                                          'id_trn');
+                  if ($id_trn == true) { foreach ($id_trn as $key) { $key_trn = $key[0]; } }
+                  if ($key_trn == '') {
+                        //Hay que modificar esta session por los valores actuales -".$id_training."-";
+                        $update_training = update_gral('`Trainings`', "session='".$key_ssn."', week_cicle='".$cicle_week."'", "id_trn='".$id_training."'");
+                        $res = 2;
+                  }else{ $res = 3; /*Esta session es exactamente igual a la que me muestras*/ }
+            }else{//echo "Esta session esta vacia";
+                  $insert_new_training = insert_gral('`Trainings`',
+                                               'session, event, level, week, week_cicle, day, session_num',
+                                               '"'.$key_ssn.'","'.$id_event.'","'.$id_level.'","'.$week.'","'.$cicle_week.'","'.$day.'","'.$session.'"');
+                  $res = 1;
+            }
+      }
+      // / / / - - - - - -
+      if (($type_event == '11' || $type_event == '12' || $type_event == '13')) {
+            $assignment_exist_aux = '';
+            $assignment_exist = select_gral('`Assignments`', 'id_a',
+                                            'id_e="'.$id_event.'" AND level_e="'.$id_level.'" AND id_m="'.$id_event.'" AND level_m="'.$id_level.'"', 'id_a');
+            //print_r($assignment_exist);
+            if ($assignment_exist == true) { foreach ($assignment_exist as $ass_ex) { $assignment_exist_aux = $ass_ex[0]; } }
+            if ($assignment_exist_aux == '') {
+                  insert_gral('`Assignments`','id_e,level_e,id_m,level_m','"'.$id_event.'","'.$id_level.'","'.$id_event.'","'.$id_level.'"');
+            }
+      }
+      // / / / - - - - - -
+      //LOG
+      $evnt = $l_e = "";
+      $evnt = select_gral('`Events`', 'name_e', 'id_e="'.$id_event.'"', 'id_e');
+      $l_e  = select_gral('`Levels`', 'name_l', 'id_l="'.$id_level.'"', 'id_l');
+      if ($evnt == true) { foreach ($evnt as $key) { $evnt = $key[0]; } }else{ $evnt = $id_event; }
+      if ($l_e == true) { foreach ($l_e as $key) { $l_e = $key[0]; } }else{ $l_e = $id_level; }
+
+      if ($res == 1) {#Insertar
+            # Activity_code = 6
+            $message = "El usuario *".$_SESSION['name_u']."* insertó una nueva sesión en Grupo: *".$evnt."* Nivel: *".$l_e."* Semana: *".$week."* Día: *".$day."* Sesión: *".$session."* ";
+            log_mb_register($message, "6");
+            #Deleting from summary json sended
+            $delete_user = delete_gral('`Summ_sended`', "id_m='".$id_event."' AND week='".$week."'");
+      }
+      if ($res == 2) {#Actualizar
+            # Activity_code = 7
+            $message = "El usuario *".$_SESSION['name_u']."* actualizó la sesión del Grupo: *".$evnt."* Nivel: *".$l_e."* Semana: *".$week."* Día: *".$day."* Sesión: *".$session."* ";
+            log_mb_register($message, "7");
+            #Deleting from summary json sended
+            $delete_user = delete_gral('`Summ_sended`', "id_m='".$id_event."' AND week='".$week."'");
+      }
+      if ($res == 4) {#Eliminar
+            # Activity_code = 8
+            $message = "El usuario *".$_SESSION['name_u']."* eliminó la sesión del Grupo: *".$evnt."* Nivel: *".$l_e."* Semana: *".$week."* Día: *".$day."* Sesión: *".$session."* ";
+            log_mb_register($message, "8");
+            #Deleting from summary json sended
+            $delete_user = delete_gral('`Summ_sended`', "id_m='".$id_event."' AND week='".$week."'");
+      }
+      return "6@-@".$res."@-@".$id_session;
+      ////// - - - - - - - - - - - - - - - - - - - - - ///////
+}
       //////////////
+	function show_event_sessions($id_event_e,$id_level_e,$id_template,$id_level_t,$type){//$template_id, $level_id
+      $tab1 = $tab2 = '';
+      $template_id = $id_template;
+      $level_id = $id_level_e;
+      $table_trains = '';
+      $id_level = $level_id;
+      $info_template = select_gral('Events','id_e,name_e,weeks,type','id_e="'.$template_id.'"','id_e');
+      if ($info_template == true) { foreach ($info_template as $key) { $id_event = $key[0]; $name_event_new = $key[1]; $weeks_train = $key[2]; $type_master_new = $key[3]; } }
+      $info_event = select_gral('Events','name_e,date_e,weeks,type,temporary,master,notes','id_e="'.$id_event_e.'"','id_e');
+      if ($info_event == true) {
+            foreach ($info_event as $key_e) {
+                  $name_event_new  = $key_e[0];
+                  $date_event      = $key_e[1];
+                  $weeks_train_new = $key_e[2];
+                  $type_master_new = $key_e[3];
+                  $is_temporary    = intval($key_e[4]);
+                  $is_master       = intval($key_e[5]);
+                  $notes_temps     = $key_e[6];
+            }
+      }
+      $weeks_train_new = $weeks_train;
+      $date_aux = $date_event;
+      $date = strtotime($date_event);
+      $date = date('l', $date);
+      if ($date != 'Sunday') {
+            if ($date == 'Monday' || $date == 'Tuesday' || $date == 'Wednesday') {
+                  $date = date("Y-m-d", strtotime('last Sunday', strtotime($date_aux)));//last or next
+            }
+            if ($date == 'Thursday' || $date == 'Friday' || $date == 'Saturday') {
+                  $date = date("Y-m-d", strtotime('next Sunday', strtotime($date_aux)));
+            }
+            $date_event = $date;
+      }
+      $date_event = strtotime($date_event);
+      $firts_date_event = strtotime("-".$weeks_train." week", $date_event);
+      $firts_date_event = date('Y-m-d', $firts_date_event);
+      $firts_date_event = strtotime($firts_date_event);
+      $firts_date_event = strtotime("+1 week", $firts_date_event);
+      $charge    = select_gral('Levels', 'name_l', 'id_l = "'.$level_id.'"', 'id_l');
+      foreach ($charge as $level_name) { $charge = $level_name[0]; }
+      $type_aux = $type_master_new;
+      $type_master_new = select_gral('Types', 'name_t', 'id_t = "'.$type_master_new.'"', 'id_t');
+      foreach ($type_master_new as $key_type_name) { $type_master_new = $key_type_name[0]; }
+      $table = ''; $weeks_template = '';
+      $weeks_e = $weeks_train_new;
+      $type_e  = $type_master_new;
+      $id_pos = $style_input_ses = '';
+      $background_color = '#EFFBFB';
+      if($type_aux == '11' || $type_aux == '12' || $type_aux == '13') {// || $is_temporary > 0
+            $weeks_e = intval($weeks_e);
+            $style_input_ses = 'disabled';
+      }else{ $weeks_e = intval($weeks_e)+1; }
+      $is_converted = 0;
+      $have_other_master = '';
+      $level_master = '';
+      $have_other_master = select_gral('`Assignments`', 'id_m, level_m', 'id_e="'.$id_event_e.'" AND level_e="'.$level_id.'"', 'id_m');
+      if ($have_other_master == true) {
+            foreach ($have_other_master as $key_id_m) {
+                  $have_other_master = $key_id_m[0];
+                  $level_master      = $key_id_m[1];
+            }
+      }
+      if (intval($id_event_e) != intval($have_other_master)) { $style_input_ses = 'disabled'; $is_converted = 1; }
+      if ($is_master > 0) { $style_input_ses = 'disabled'; }
+      ///Para saber si hay sessiones en alguna columna///
+            $sess01 = $sess02 = $sess03 = $sess04 = $sess05 = $sess06 = $sess07 = 0;
+            $sess08 = $sess09 = $sess10 = $sess11 = $sess12 = $sess13 = $sess14 = 0;
+            $sess15 = $sess16 = $sess17 = $sess18 = $sess19 = $sess20 = $sess21 = 0;
+      ///Termina para saber si hay sessiones en columnas///
+      $date_event_aux = '';
+      $weeks_template = '<input id="weeks_temp" type="hidden" value="'.$weeks_e.'" />';
+        for ($i=1; $i <= $weeks_e; $i++) {// una semana que no me mostraba y la semana de descanso
+            ///Weeks date
+            $date_event_aux = strtotime("+".($i-1)." week", $firts_date_event);
+            $date_event_aux = date('d M', $date_event_aux);
+            ///finish weeks date
+            ///////Vaciamos datos de DB/////////
+            $session01 = $session02 = $session03 = $session04 = $session05 = $session06 = $session07 = '';
+            $session08 = $session09 = $session10 = $session11 = $session12 = $session13 = $session14 = '';
+            $session15 = $session16 = $session17 = $session18 = $session19 = $session20 = $session21 = '';
+            $cants_s = $units_s = $tsss_s = $cants_b = $units_b = $tsss_b = $cants_r = $units_r = $tsss_r = $cw = $lr = $all_tss = '';
+            $tsss = $tssb = $tssr = 0;
+            $res1 = 0;
+            $summary_values = '';
+            if ($id_event != 0) {
+                  $trainings_week = '';
+                  $trainings_week = get_sessions_week($id_event, $id_level_t, $i);
+                  if ($trainings_week == true) {
+                        foreach ($trainings_week as $key) {
+                              $cw = $key[0];
+                              $lr = $key[1];
+                              $key[2] = explode('|', $key[2]); $session01 = $key[2][0];
+                              if (count($key[2])==1) { $key[2][3] = 0; $key[2][6] = 0; $key[2][9] = 0; }
+                              $key[3] = explode('|', $key[3]); $session02 = $key[3][0];
+                              if (count($key[3])==1) { $key[3][3] = 0; $key[3][6] = 0; $key[3][9] = 0; }
+                              $key[4] = explode('|', $key[4]); $session03 = $key[4][0];
+                              if (count($key[4])==1) { $key[4][3] = 0; $key[4][6] = 0; $key[4][9] = 0; }
+                              $key[5] = explode('|', $key[5]); $session04 = $key[5][0];
+                              if (count($key[5])==1) { $key[5][3] = 0; $key[5][6] = 0; $key[5][9] = 0; }
+                              $key[6] = explode('|', $key[6]); $session05 = $key[6][0];
+                              if (count($key[6])==1) { $key[6][3] = 0; $key[6][6] = 0; $key[6][9] = 0; }
+                              $key[7] = explode('|', $key[7]); $session06 = $key[7][0];
+                              if (count($key[7])==1) { $key[7][3] = 0; $key[7][6] = 0; $key[7][9] = 0; }
+                              $key[8] = explode('|', $key[8]); $session07 = $key[8][0];
+                              if (count($key[8])==1) { $key[8][3] = 0; $key[8][6] = 0; $key[8][9] = 0; }
+                              $key[9] = explode('|', $key[9]); $session08 = $key[9][0];
+                              if (count($key[9])==1) { $key[9][3] = 0; $key[9][6] = 0; $key[9][9] = 0; }
+                              $key[10] = explode('|', $key[10]); $session09 = $key[10][0];
+                              if (count($key[10])==1) { $key[10][3] = 0; $key[10][6] = 0; $key[10][9] = 0; }
+                              $key[11] = explode('|', $key[11]); $session10 = $key[11][0];
+                              if (count($key[11])==1) { $key[11][3] = 0; $key[11][6] = 0; $key[11][9] = 0; }
+                              $key[12] = explode('|', $key[12]); $session11 = $key[12][0];
+                              if (count($key[12])==1) { $key[12][3] = 0; $key[12][6] = 0; $key[12][9] = 0; }
+                              $key[13] = explode('|', $key[13]); $session12 = $key[13][0];
+                              if (count($key[13])==1) { $key[13][3] = 0; $key[13][6] = 0; $key[13][9] = 0; }
+                              $key[14] = explode('|', $key[14]); $session13 = $key[14][0];
+                              if (count($key[14])==1) { $key[14][3] = 0; $key[14][6] = 0; $key[14][9] = 0; }
+                              $key[15] = explode('|', $key[15]); $session14 = $key[15][0];
+                              if (count($key[15])==1) { $key[15][3] = 0; $key[15][6] = 0; $key[15][9] = 0; }
+                              $key[16] = explode('|', $key[16]); $session15 = $key[16][0];
+                              if (count($key[16])==1) { $key[16][3] = 0; $key[16][6] = 0; $key[16][9] = 0; }
+                              $key[17] = explode('|', $key[17]); $session16 = $key[17][0];
+                              if (count($key[17])==1) { $key[17][3] = 0; $key[17][6] = 0; $key[17][9] = 0; }
+                              $key[18] = explode('|', $key[18]); $session17 = $key[18][0];
+                              if (count($key[18])==1) { $key[18][3] = 0; $key[18][6] = 0; $key[18][9] = 0; }
+                              $key[19] = explode('|', $key[19]); $session18 = $key[19][0];
+                              if (count($key[19])==1) { $key[19][3] = 0; $key[19][6] = 0; $key[19][9] = 0; }
+                              $key[20] = explode('|', $key[20]); $session19 = $key[20][0];
+                              if (count($key[20])==1) { $key[20][3] = 0; $key[20][6] = 0; $key[20][9] = 0; }
+                              $key[21] = explode('|', $key[21]); $session20 = $key[21][0];
+                              if (count($key[21])==1) { $key[21][3] = 0; $key[21][6] = 0; $key[21][9] = 0; }
+                              $key[22] = explode('|', $key[22]); $session21 = $key[22][0];
+                              if (count($key[22])==1) { $key[22][3] = 0; $key[22][6] = 0; $key[22][9] = 0; }
+
+                              $tsss = $key[2][3]+$key[3][3]+$key[4][3]+$key[5][3]+$key[6][3]+$key[7][3]+$key[8][3]+$key[9][3]+$key[10][3]+$key[11][3]+$key[12][3]+$key[13][3]+$key[14][3]+$key[15][3]+$key[16][3]+$key[17][3]+$key[18][3]+$key[19][3]+$key[20][3]+$key[21][3]+$key[22][3];
+                              $tssb = $key[2][6]+$key[3][6]+$key[4][6]+$key[5][6]+$key[6][6]+$key[7][6]+$key[8][6]+$key[9][6]+$key[10][6]+$key[11][6]+$key[12][6]+$key[13][6]+$key[14][6]+$key[15][6]+$key[16][6]+$key[17][6]+$key[18][6]+$key[19][6]+$key[20][6]+$key[21][6]+$key[22][6];
+                              $tssr = $key[2][9]+$key[3][9]+$key[4][9]+$key[5][9]+$key[6][9]+$key[7][9]+$key[8][9]+$key[9][9]+$key[10][9]+$key[11][9]+$key[12][9]+$key[13][9]+$key[14][9]+$key[15][9]+$key[16][9]+$key[17][9]+$key[18][9]+$key[19][9]+$key[20][9]+$key[21][9]+$key[22][9];
+
+                              $all_tss = 'S: '.$tsss.' | B: '.$tssb.' | R: '.$tssr;
+                              if ($tssr > 0) {
+                                    $res1 = round(($tssb/$tssr),2);
+                              }else{
+                                    $res1 = 0;
+                              }
+                              if ($res1 < 2) { $summary_values = '↑ B/R ↓ → <span id="br_'.$i.'">'.$res1.'</span> | <span id="tp_'.$i.'">'.round(($tsss+$tssb+$tssr)/7).'</span> TSS/día'; }
+                              if ($res1 == 2) { $summary_values = 'B/R → <span id="br_'.$i.'">'.$res1.'</span> | <span id="tp_'.$i.'">'.round(($tsss+$tssb+$tssr)/7).'</span> TSS/día'; }
+                              if ($res1 > 2) { $summary_values = '↓ B/R ↑ → <span id="br_'.$i.'">'.$res1.'</span> | <span id="tp_'.$i.'">'.round(($tsss+$tssb+$tssr)/7).'</span> TSS/día'; }
+
+                              if ($session01 != '') { $sess01++; } if ($session02 != '') { $sess02++; } if ($session03 != '') { $sess03++; }
+                              if ($session04 != '') { $sess04++; } if ($session05 != '') { $sess05++; } if ($session06 != '') { $sess06++; }
+                              if ($session07 != '') { $sess07++; } if ($session08 != '') { $sess08++; } if ($session09 != '') { $sess09++; }
+                              if ($session10 != '') { $sess10++; } if ($session11 != '') { $sess11++; } if ($session12 != '') { $sess12++; }
+                              if ($session13 != '') { $sess13++; } if ($session14 != '') { $sess14++; } if ($session15 != '') { $sess15++; }
+                              if ($session16 != '') { $sess16++; } if ($session17 != '') { $sess17++; } if ($session18 != '') { $sess18++; }
+                              if ($session19 != '') { $sess19++; } if ($session20 != '') { $sess20++; } if ($session21 != '') { $sess21++; }
+
+                        }
+                  }else{
+                        $cw = '';
+                        $lr = '';
+                        $all_tss = '';
+                        $summary_values = 'B/R → <span id="br_'.$i.'">0</span> | <span id="tp_'.$i.'">0</span> TSS/día';
+                        $session01 = $session02 = $session03 = $session04 = $session05 = $session06 = $session07 = '';
+                        $session08 = $session09 = $session10 = $session11 = $session12 = $session13 = $session14 = '';
+                        $session15 = $session16 = $session17 = $session18 = $session19 = $session20 = $session21 = '';
+                  }
+            }else{
+                  $sessions = $cants_s = $units_s = $tsss_s = $cants_b = $units_b = $tsss_b = $cants_r = $units_r = $tsss_r = $cw = $lr = '';
+                  $summary_values = 'B/R → <span id="br_'.$i.'">0</span> | <span id="tp_'.$i.'">0</span> TSS/día';
+            }
+            (intval($id_event_e) == intval($have_other_master)) ? $aditional_function = 'change_cicle_week_temp(this.value,'.$i.');' : $aditional_function = '';
+            $aditional_function = 'change_cicle_week_temp(this.value,'.$i.');';
+            ////Termina vacio de datos de DB////
+            # COMIENZA NOTAS INTENTO 2
+            $note01 = $note02 = $note03 = $note04 = $note05 = $note06 = $note07 = $note08 = $note09 = $note10 = $note11 = '';
+            $note12 = $note13 = $note14 = $note15 = $note16 = $note17 = $note18 = $note19 = $note20 = $note21 = '';
+            $hide = '';
+            $type_event_note = '2';
+            if ($is_temporary > 0) {# SI ES EVENTO SECUNDRIO
+                  $type_event_note = '3';
+            }
+            $temp_note = $event_note = $sec_note = '';
+            //if ($style_input_ses != 'disabled') { # SI LA TABLA NO ES PROTEGIDA (CUANDO NO ES POSIBLE EDITARLA)
+                  $style_notes     = 'width:18px; vertical-align: bottom; text-align: right; cursor:pointer; ';//position:absolute;
+
+                  ($i > 9) ? $space = '&nbsp;&nbsp;&nbsp;&nbsp;' : $space = '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;';
+
+                  $image_direction = './img/images/notes_.png';
+                  $image_direction = get_direction_imagen($is_temporary, $id_event_e, $id_level_e, $id_template, $id_level_t, $i, "n/a", "n/a");
+            # TERMINA NOTAS INTENTO 2
+            $table .= '             <tr class="row_'.$i.'" style="background:'.$background_color.';">
+                                    <td class="g h">'.$date_event_aux.'</td>
+                                    <td class="g"><input type="text" class="row_'.$i.' med cicle_week_'.$i.'" id="cicle_week_'.$i.'" onkeyup="show_value_tables('.$i.', this.value, this.id); change_r_color(this.value,'.$weeks_e.','.$i.','."'none'".'); '.$aditional_function.' return false;" value="'.$cw.'" style="background:'.$background_color.';" '.$style_input_ses.'></td><!--style="width: 80px;"  -->
+                                    <!--<td>';
+            $table .= '             </td>-->
+                                    <td class="summary_session_'.$i.' n_w" id="summary_session_'.$i.'">'.$summary_values.'</td>
+                                    <td id="week_num" class="g n_w">Sem '.$i.'</td>
+                                    <td class="g h"></td><td class="d03 h"></td>';
+
+            $image_direction = './img/images/notes_.png';
+            if ($session01 != '') { $hide = ''; }else{ $hide = 'hidden'; }
+            if($hide == ''){$image_direction = get_direction_imagen($is_temporary, $id_event_e, $id_level_e, $id_template, $id_level_t, $i, "1", "1");}
+            $function_note = "show_popup_notes(3, '".trim($session01)."', 'session_1_1_".$i."', ".$i.", ".$type_event_note.",0); return false;";
+            $note01 = '<img id="add_note_pencil" src="'.$image_direction.'" style="'.$style_notes.'" onclick="'.$function_note.'" class="note_1_1_'.$i.'" '.$hide.'>';
+            $table .= '             <td class="ses1 n_w" style="border-left-width:medium;border-left-color:darkgray;"><input type="text" class="row_'.$i.' session_trains session_1_1_'.$i.'" id="session_1_1_'.$i.'" value="'.$session01.'" '.$style_input_ses.' onclick="show_popup(3, this.value, this.id, '.$i.'); return false;" style="background:'.$background_color.';">'.$note01.'</td>';
+            $table .= '             <td class="ses2 n_w"><input type="text" class="row_'.$i.' session_trains session_2_1_'.$i.'" id="session_2_1_'.$i.'" value="'.$session02.'" '.$style_input_ses.' onclick="show_popup(3, this.value, this.id, '.$i.'); return false;" style="background:'.$background_color.';">'.$note02.'</td>';
+            $table .= '             <td class="ses3 n_w"><input type="text" class="row_'.$i.' session_trains session_3_1_'.$i.'" id="session_3_1_'.$i.'" value="'.$session03.'" '.$style_input_ses.' onclick="show_popup(3, this.value, this.id, '.$i.'); return false;" style="background:'.$background_color.';">'.$note03.'</td>';
+
+            $image_direction = './img/images/notes_.png';
+            if ($session04 != '') { $hide = ''; }else{ $hide = 'hidden'; }
+            if($hide == ''){$image_direction = get_direction_imagen($is_temporary, $id_event_e, $id_level_e, $id_template, $id_level_t, $i, "2", "1");}
+            $function_note = "show_popup_notes(3, '".trim($session04)."', 'session_1_2_".$i."', ".$i.", ".$type_event_note.",0); return false;";
+            $note04 = '<img id="add_note_pencil" src="'.$image_direction.'" style="'.$style_notes.'" onclick="'.$function_note.'" class="note_1_2_'.$i.'" '.$hide.'>';
+            $table .= '             <td class="ses4 n_w" style="border-left-width:medium;border-left-color:darkgray;"><input type="text" class="row_'.$i.' session_trains session_1_2_'.$i.'" id="session_1_2_'.$i.'" value="'.$session04.'" '.$style_input_ses.' onclick="show_popup(3, this.value, this.id, '.$i.'); return false;" style="background:'.$background_color.';">'.$note04.'</td>';
+            $table .= '             <td class="ses5 n_w"><input type="text" class="row_'.$i.' session_trains session_2_2_'.$i.'" id="session_2_2_'.$i.'" value="'.$session05.'" '.$style_input_ses.' onclick="show_popup(3, this.value, this.id, '.$i.'); return false;" style="background:'.$background_color.';">'.$note05.'</td>';
+            $table .= '             <td class="ses6 n_w"><input type="text" class="row_'.$i.' session_trains session_3_2_'.$i.'" id="session_3_2_'.$i.'" value="'.$session06.'" '.$style_input_ses.' onclick="show_popup(3, this.value, this.id, '.$i.'); return false;" style="background:'.$background_color.';">'.$note06.'</td>';
+
+            $image_direction = './img/images/notes_.png';
+            if ($session07 != '') { $hide = ''; }else{ $hide = 'hidden'; }
+            if($hide == ''){$image_direction = get_direction_imagen($is_temporary, $id_event_e, $id_level_e, $id_template, $id_level_t, $i, "3", "1");}
+            $function_note = "show_popup_notes(3, '".trim($session07)."', 'session_1_3_".$i."', ".$i.", ".$type_event_note.",0); return false;";
+            $note07 = '<img id="add_note_pencil" src="'.$image_direction.'" style="'.$style_notes.'" onclick="'.$function_note.'" class="note_1_3_'.$i.'" '.$hide.'>';
+            $table .= '             <td class="ses7 n_w" style="border-left-width:medium;border-left-color:darkgray;"><input type="text" class="row_'.$i.' session_trains session_1_3_'.$i.'" id="session_1_3_'.$i.'" value="'.$session07.'" '.$style_input_ses.' onclick="show_popup(3, this.value, this.id, '.$i.'); return false;" style="background:'.$background_color.';">'.$note07.'</td>';
+            $table .= '             <td class="ses8 n_w"><input type="text" class="row_'.$i.' session_trains session_2_3_'.$i.'" id="session_2_3_'.$i.'" value="'.$session08.'" '.$style_input_ses.' onclick="show_popup(3, this.value, this.id, '.$i.'); return false;" style="background:'.$background_color.';">'.$note08.'</td>';
+            $table .= '             <td class="ses9 n_w"><input type="text" class="row_'.$i.' session_trains session_3_3_'.$i.'" id="session_3_3_'.$i.'" value="'.$session09.'" '.$style_input_ses.' onclick="show_popup(3, this.value, this.id, '.$i.'); return false;" style="background:'.$background_color.';">'.$note09.'</td>';
+
+            $image_direction = './img/images/notes_.png';
+            if ($session10 != '') { $hide = ''; }else{ $hide = 'hidden'; }
+            if($hide == ''){$image_direction = get_direction_imagen($is_temporary, $id_event_e, $id_level_e, $id_template, $id_level_t, $i, "4", "1");}
+            $function_note = "show_popup_notes(3, '".trim($session10)."', 'session_1_4_".$i."', ".$i.", ".$type_event_note.",0); return false;";
+            $note10 = '<img id="add_note_pencil" src="'.$image_direction.'" style="'.$style_notes.'" onclick="'.$function_note.'" class="note_1_4_'.$i.'" '.$hide.'>';
+            $table .= '             <td class="ses10 n_w" style="border-left-width:medium;border-left-color:darkgray;"><input type="text" class="row_'.$i.' session_trains session_1_4_'.$i.'" id="session_1_4_'.$i.'" value="'.$session10.'" '.$style_input_ses.' onclick="show_popup(3, this.value, this.id, '.$i.'); return false;" style="background:'.$background_color.';">'.$note10.'</td>';
+            $table .= '             <td class="ses11 n_w"><input type="text" class="row_'.$i.' session_trains session_2_4_'.$i.'" id="session_2_4_'.$i.'" value="'.$session11.'" '.$style_input_ses.' onclick="show_popup(3, this.value, this.id, '.$i.'); return false;" style="background:'.$background_color.';">'.$note11.'</td>';
+            $table .= '             <td class="ses12 n_w"><input type="text" class="row_'.$i.' session_trains session_3_4_'.$i.'" id="session_3_4_'.$i.'" value="'.$session12.'" '.$style_input_ses.' onclick="show_popup(3, this.value, this.id, '.$i.'); return false;" style="background:'.$background_color.';">'.$note12.'</td>';
+
+            $image_direction = './img/images/notes_.png';
+            if ($session13 != '') { $hide = ''; }else{ $hide = 'hidden'; }
+            if($hide == ''){$image_direction = get_direction_imagen($is_temporary, $id_event_e, $id_level_e, $id_template, $id_level_t, $i, "5", "1");}
+            $function_note = "show_popup_notes(3, '".trim($session13)."', 'session_1_5_".$i."', ".$i.", ".$type_event_note.",0); return false;";
+            $note13 = '<img id="add_note_pencil" src="'.$image_direction.'" style="'.$style_notes.'" onclick="'.$function_note.'" class="note_1_5_'.$i.'" '.$hide.'>';
+            $table .= '             <td class="ses13 n_w" style="border-left-width:medium;border-left-color:darkgray;"><input type="text" class="row_'.$i.' session_trains session_1_5_'.$i.'" id="session_1_5_'.$i.'" value="'.$session13.'" '.$style_input_ses.' onclick="show_popup(3, this.value, this.id, '.$i.'); return false;" style="background:'.$background_color.';">'.$note13.'</td>';
+            $table .= '             <td class="ses14 n_w"><input type="text" class="row_'.$i.' session_trains session_2_5_'.$i.'" id="session_2_5_'.$i.'" value="'.$session14.'" '.$style_input_ses.' onclick="show_popup(3, this.value, this.id, '.$i.'); return false;" style="background:'.$background_color.';">'.$note14.'</td>';
+            $table .= '             <td class="ses15 n_w"><input type="text" class="row_'.$i.' session_trains session_3_5_'.$i.'" id="session_3_5_'.$i.'" value="'.$session15.'" '.$style_input_ses.' onclick="show_popup(3, this.value, this.id, '.$i.'); return false;" style="background:'.$background_color.';">'.$note15.'</td>';
+
+            $image_direction = './img/images/notes_.png';
+            if ($session16 != '') { $hide = ''; }else{ $hide = 'hidden'; }
+            if($hide == ''){$image_direction = get_direction_imagen($is_temporary, $id_event_e, $id_level_e, $id_template, $id_level_t, $i, "6", "1");}
+            $function_note = "show_popup_notes(3, '".trim($session16)."', 'session_1_6_".$i."', ".$i.", ".$type_event_note.",0); return false;";
+            $note16 = '<img id="add_note_pencil" src="'.$image_direction.'" style="'.$style_notes.'" onclick="'.$function_note.'" class="note_1_6_'.$i.'" '.$hide.'>';
+            $table .= '             <td class="ses16 n_w" style="border-left-width:medium;border-left-color:darkgray;"><input type="text" class="row_'.$i.' session_trains session_1_6_'.$i.'" id="session_1_6_'.$i.'" value="'.$session16.'" '.$style_input_ses.' onclick="show_popup(3, this.value, this.id, '.$i.'); return false;" style="background:'.$background_color.';">'.$note16.'</td>';
+            $table .= '             <td class="ses17 n_w"><input type="text" class="row_'.$i.' session_trains session_2_6_'.$i.'" id="session_2_6_'.$i.'" value="'.$session17.'" '.$style_input_ses.' onclick="show_popup(3, this.value, this.id, '.$i.'); return false;" style="background:'.$background_color.';">'.$note17.'</td>';
+            $table .= '             <td class="ses18 n_w"><input type="text" class="row_'.$i.' session_trains session_3_6_'.$i.'" id="session_3_6_'.$i.'" value="'.$session18.'" '.$style_input_ses.' onclick="show_popup(3, this.value, this.id, '.$i.'); return false;" style="background:'.$background_color.';">'.$note18.'</td>';
+
+            $image_direction = './img/images/notes_.png';
+            if ($session19 != '') { $hide = ''; }else{ $hide = 'hidden'; }
+            if($hide == ''){$image_direction = get_direction_imagen($is_temporary, $id_event_e, $id_level_e, $id_template, $id_level_t, $i, "7", "1");}
+            $function_note = "show_popup_notes(3, '".trim($session19)."', 'session_1_7_".$i."', ".$i.", ".$type_event_note.",0); return false;";
+            $note19 = '<img id="add_note_pencil" src="'.$image_direction.'" style="'.$style_notes.'" onclick="'.$function_note.'" class="note_1_7_'.$i.'" '.$hide.'>';
+            $table .= '             <td class="ses19 n_w" style="border-left-width:medium;border-left-color:darkgray;"><input type="text" class="row_'.$i.' session_trains session_1_7_'.$i.'" id="session_1_7_'.$i.'" value="'.$session19.'" '.$style_input_ses.' onclick="show_popup(3, this.value, this.id, '.$i.'); return false;" style="background:'.$background_color.';">'.$note19.'</td>';
+            $table .= '             <td class="ses20 n_w"><input type="text" class="row_'.$i.' session_trains session_2_7_'.$i.'" id="session_2_7_'.$i.'" value="'.$session20.'" '.$style_input_ses.' onclick="show_popup(3, this.value, this.id, '.$i.'); return false;" style="background:'.$background_color.';">'.$note20.'</td>';
+            $table .= '             <td class="ses21 n_w"><input type="text" class="row_'.$i.' session_trains session_3_7_'.$i.'" id="session_3_7_'.$i.'" value="'.$session21.'" '.$style_input_ses.' onclick="show_popup(3, this.value, this.id, '.$i.'); return false;" style="background:'.$background_color.';">'.$note21.'</td>
+
+                                    <td id="total_tss_week_'.$i.'" style="border-left-width:medium;border-left-color:darkgray;">'.$all_tss.'</td>
+                                </tr>';
+            //$background_color = '#EFFBFB';
+            if ($cw == 'r' || $cw == 'R') {
+                  ($background_color == '#EFFBFB') ? $background_color = '#CEF6F5' : $background_color = '#EFFBFB';
+            } 
+        }
+
+            $table .= '       </tbody>
+                        </table>
+                        <div class="load"></div>';
+            $table .= '
+                            </tbody>
+                        </table>
+                        <br/>
+                        <!-- Ventana emregente -->
+                        <div id="hider_3" onclick="close_popup(3); return false;"></div>
+                        <div id="popup_box_3">
+                            <a class="close" onclick="close_popup(3); return false;">X</a>
+                            <br>
+                            <div class="message_box_3"></div>
+                        </div> ';
+            $table .= $weeks_template;
+
+            $cols01 = $cols02 = $cols03 = $cols04 = $cols05 = $cols06 = $cols07 = 0;
+            $cols08 = $cols09 = $cols10 = $cols11 = $cols12 = $cols13 = $cols14 = 0;
+            $cols15 = $cols16 = $cols17 = $cols18 = $cols19 = $cols20 = $cols21 = 0;
+            
+            ($sess01 > 0) ? $cols01 = 1 : $cols01 = 0; ($sess02 > 0) ? $cols02 = 1 : $cols02 = 0; ($sess03 > 0) ? $cols03 = 1 : $cols03 = 0;
+            ($sess04 > 0) ? $cols04 = 1 : $cols04 = 0; ($sess05 > 0) ? $cols05 = 1 : $cols05 = 0; ($sess06 > 0) ? $cols06 = 1 : $cols06 = 0;
+            ($sess07 > 0) ? $cols07 = 1 : $cols07 = 0; ($sess08 > 0) ? $cols08 = 1 : $cols08 = 0; ($sess09 > 0) ? $cols09 = 1 : $cols09 = 0;
+            ($sess10 > 0) ? $cols10 = 1 : $cols10 = 0; ($sess11 > 0) ? $cols11 = 1 : $cols11 = 0; ($sess12 > 0) ? $cols12 = 1 : $cols12 = 0;
+            ($sess13 > 0) ? $cols13 = 1 : $cols13 = 0; ($sess14 > 0) ? $cols14 = 1 : $cols14 = 0; ($sess15 > 0) ? $cols15 = 1 : $cols15 = 0;
+            ($sess16 > 0) ? $cols16 = 1 : $cols16 = 0; ($sess17 > 0) ? $cols17 = 1 : $cols17 = 0; ($sess18 > 0) ? $cols18 = 1 : $cols18 = 0;
+            ($sess19 > 0) ? $cols19 = 1 : $cols19 = 0; ($sess20 > 0) ? $cols20 = 1 : $cols20 = 0; ($sess21 > 0) ? $cols21 = 1 : $cols21 = 0;
+            ///..... .. .. .. .. .. .. .. .. .. ..
+            $notes = '';
+            if ($type_aux != '11' && $type_aux != '12' && $type_aux != '13' && $is_temporary == 0) {
+                  $notes = '<div style="text-align:left; display:inline;">
+                              <label for="notes_event">Notas: </label>
+                              <textarea cols="50" rows="4" id="notes_event" class="input-default" placeholder="Agregue aqui sus notas para Guardar Grupo Secundario..."></textarea>
+                        </div>';
+            }
+            $master_data = '';
+            if ($is_temporary > 0) {
+                  $notes .= ' <div style="text-align:left; display:inline;">
+                              <label for="notes_event">Notas: </label>
+                              <textarea cols="50" rows="4" id="notes_event" class="input-default" placeholder="Agregue aqui sus notas...">'.$notes_temps.'</textarea>
+                              &nbsp;&nbsp;&nbsp;&nbsp;<button class="btn btn-primary" type="button" onclick="save_notes_temporary_event();">Guardar Notas</button>
+                        </div>';
+            }
+            # - # - # - # - # - # - # - # - # - # - # - #
+            if (intval($id_event_e) == intval($have_other_master)) {
+                  $desc_m = 'Temporal (no disponible)';
+            }else{
+                  $master_name = select_gral('`Events`','name_e,type','id_e="'.$have_other_master.'"','name_e');
+                  if ($master_name == true) { foreach ($master_name as $key_nm) { $master_name = $key_nm[0]; $master_type = $key_nm[1]; } }
+                  $master_leve = select_gral('`Levels`','name_l','id_l="'.$level_master.'"','name_l');
+                  if ($master_leve == true) { foreach ($master_leve as $key_lm) { $master_leve = $key_lm[0]; } }
+                  $master_type_name = select_gral('`Types`','name_t','id_t="'.$master_type.'"','name_t');
+                  if ($master_type_name == true) { foreach ($master_type_name as $key_tm) { $master_type_name = $key_tm[0]; } }
+                  $desc_m = utf8_encode($master_type_name).' -- '.utf8_encode($master_name).' -- '.utf8_encode($master_leve);
+            }
+            $date_evt = $weeks_evt = "";
+            $date_event = select_gral('`Events`','date_e','id_e="'.$id_event_e.'"','name_e');
+            if ($date_event == true) { foreach ($date_event as $key_de) { $date_evt = $key_de[0]; } }
+            $date_event = select_gral('`Events`','weeks','id_e="'.$id_template.'"','name_e');
+            if ($date_event == true) { foreach ($date_event as $key_de) { $weeks_evt = $key_de[0]; } }
+            if ($date_evt != "" && $weeks_evt != "") {
+                  $date_event = strtotime('-'.($weeks_evt-1).' weeks', strtotime($date_evt));
+                  $date_event = date("d-M-Y", $date_event);
+            }else{ $date_event = "Fecha no disponible..."; }
+            $master_data = '<div style="width: 100%;"><h4> &nbsp;&nbsp;&nbsp;&nbsp;Template: <b>'.$desc_m.'</b>,&nbsp;&nbsp;&nbsp;&nbsp; Este Grupo Comienza el: <b>'.$date_event.'</b></h4></div><br>';
+            # - # - # - # - # - # - # - # - # - # - # - #
+            //$id_event_e $have_other_master $level_master
+            ///..... .. .. .. .. .. .. .. .. .. ..
+            $width_button = '';
+            $width_button = '<br>
+                  <div style="width:100%;">'.$master_data.'
+                        '.$notes.'
+                        <div style="text-align:right;">';
+            if ($is_temporary > 0) {
+                  $width_button .= '<button class="btn add_block" type="button" onclick="load_form_block(3);">Cargar Bloque</button> ';
+            }
+            $width_button .= '<button class="btn" type="button" onclick="show_all_cols();">Complementar Sesiones</button>
+                              <button class="btn width_button" type="button" onclick="modify_width_tables('."'normal'".');">Ampliar Sesiones</button> ';
+            if ($type_aux != '11' && $type_aux != '12' && $type_aux != '13' && $is_temporary == 0) {
+                  $width_button .= '<button class="btn exchg_button" type="button" onclick="show_exchange_cols_inputs(0);">Intercambiar Columnas</button>';
+            }
+            $width_button .= '</div></div><br><div id="note_columns" style="width:100%;"></div><br>';//Simple
+            ///..... .. .. .. .. .. .. .. .. .. ..
+
+            $header = ' <img src="./img/images/back_icon02.png" title="Regresar al Resumen" style="cursor:pointer; width:4%;" onclick="load_summary_macro_form('."''".'); return false;">
+                        <input type="hidden" id="weeks_train" value="'.$weeks_e.'"></input>
+                        <input type="hidden" id="level_master" value="'.$level_id.'"></input>
+                        <input type="hidden" id="type_master" value="'.$type_aux.'"></input>'.//
+                       '<input type="hidden" id="name_master_sel" value="'.$id_event_e.'"></input>'.
+                       '<input type="hidden" id="level_temp" value="'.$id_level_t.'"></input>'.//
+                       '<input type="hidden" id="id_temp" value="'.$id_template.'"></input>';//
+                        $val_type_table = '';
+                        $event_temp = $exist_t = '';
+                        $event_temp = select_gral('`Events_temp`','COUNT(*)','event="'.$id_event_e.'" AND level="'.$id_level_e.'"', 'id_et');
+                        if ($event_temp == true) { foreach ($event_temp as $key) { $exist_t = intval($key[0]); } }
+                        if ($type_aux != '11' && $type_aux != '12' && $type_aux != '13' && $is_temporary == 0 && $exist_t == 0){
+                              if ($type == 1) {
+                                    $header .= '<h3 class="pagetitle" id="type_train">';
+                                    $header .= utf8_encode($name_event_new);
+                                    $header .= '</h3>';
+                                    $header .= '<br>';
+                                    $header .= '<div class="form-group">&nbsp;&nbsp;&nbsp;
+                                                      <button class="btn btn-primary" type="button" onclick="load_groups_withoutassign(); return false;" > Realizar cambio al nombre del Grupo </button>
+                                                </div>';
+                                    $header .= '<span id="value_name_event">
+                                                      <input type="hidden" id="name_event" value="'.utf8_encode($name_event_new).'" />
+                                                </span>';
+                              }else{
+                                    $header .= '<h3 class="pagetitle" id="type_train"> '.utf8_encode($type_e).', Carga '.utf8_encode($charge).' - <input type="text" id="name_event" value="'.utf8_encode($name_event_new).'" style="font-size: 25px;"/> <a style="cursor: pointer;" title="Actividad del Grupo" onclick="load_info_event_activity('."'".utf8_encode($name_event_new)."'".'); return false;"><span class="iconfa-list-alt"></span></a></h3>';
+                              }
+                              $val_type_table = 'normal';
+                        }else{
+                              $header .= '<h3 class="pagetitle" id="type_train"> '.utf8_encode($type_e).', Carga '.utf8_encode($charge).' - '.utf8_encode($name_event_new).' <a style="cursor: pointer;" title="Actividad del Grupo" onclick="load_info_event_activity('."'".utf8_encode($name_event_new)."'".'); return false;"><span class="iconfa-list-alt"></span></a></h3>';
+                              $val_type_table = 'temporal';
+                        }
+                        $header .= '<input type="hidden" id="type_table" value="'.$val_type_table.'"/>';
+                        $header .= $width_button.'
+                        <table class="table table-bordered trainings" id="t_ex">
+                            <thead>
+                                <tr>
+                                    <th title="Fecha">Fecha</th>
+                                    <th class="d" title="Ciclo Semanal">C.Sem.</th>
+                                    <!--<th class="d"></th>-->
+                                    <th title="Datos">Datos</th>
+                                    <th title="Semana" class="g">Sem.</th>
+                                    <th class="d"></th>
+                                    <th style="border-right: dodgerblue !important; border-right-style: solid !important;"></th>';
+                                    (($cols01+$cols02+$cols03) > 0) ? $style = '' : $style = 'style="display: none;"';
+                        $header .= '<th colspan="'.($cols01+$cols02+$cols03).'" '.$style .' class="a col_day_1_p" style="border-left-width:medium;border-left-color:darkgray;">Lunes / Monday</th>';
+                                    (($cols04+$cols05+$cols06) > 0) ? $style = '' : $style = 'style="display: none;"';
+                        $header .= '<th colspan="'.($cols04+$cols05+$cols06).'" '.$style .' class="col_day_2_p" style="border-left-width:medium;border-left-color:darkgray;">Martes / Tuesday</th>';
+                                    (($cols07+$cols08+$cols09) > 0) ? $style = '' : $style = 'style="display: none;"';
+                        $header .= '<th colspan="'.($cols07+$cols08+$cols09).'" '.$style .' class="a col_day_3_p" style="border-left-width:medium;border-left-color:darkgray;">Miercoles / Wednesday</th>';
+                                    (($cols10+$cols11+$cols12) > 0) ? $style = '' : $style = 'style="display: none;"';
+                        $header .= '<th colspan="'.($cols10+$cols11+$cols12).'" '.$style .' class="col_day_4_p" style="border-left-width:medium;border-left-color:darkgray;">Jueves / Thursday</th>';
+                                    (($cols13+$cols14+$cols15) > 0) ? $style = '' : $style = 'style="display: none;"';
+                        $header .= '<th colspan="'.($cols13+$cols14+$cols15).'" '.$style .' class="a col_day_5_p" style="border-left-width:medium;border-left-color:darkgray;">Viernes / Friday</th>';
+                                    (($cols16+$cols17+$cols18) > 0) ? $style = '' : $style = 'style="display: none;"';
+                        $header .= '<th colspan="'.($cols16+$cols17+$cols18).'" '.$style .' class="col_day_6_p" style="border-left-width:medium;border-left-color:darkgray;">Sabado / Saturday</th>';
+                                    (($cols19+$cols20+$cols21) > 0) ? $style = '' : $style = 'style="display: none;"';
+                        $header .= '<th colspan="'.($cols19+$cols20+$cols21).'" '.$style .' class="a col_day_7_p" style="border-left-width:medium;border-left-color:darkgray;">Domingo / Sunday</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="c">
+                                    <td class="d"> </td><td class="d"></td><td class="d"></td>
+                                    <td class="d"></td><td class="d"></td><td class="d02"></td>
+                                    <td class="desc_day col_day_1" colspan="3" style="border-left-width:medium;border-left-color:darkgray;"></td>
+                                    <td class="desc_day col_day_2" colspan="3" style="border-left-width:medium;border-left-color:darkgray;"></td>
+                                    <td class="desc_day col_day_3" colspan="3" style="border-left-width:medium;border-left-color:darkgray;"></td>
+                                    <td class="desc_day col_day_4" colspan="3" style="border-left-width:medium;border-left-color:darkgray;"></td>
+                                    <td class="desc_day col_day_5" colspan="3" style="border-left-width:medium;border-left-color:darkgray;"></td>
+                                    <td class="desc_day col_day_6" colspan="3" style="border-left-width:medium;border-left-color:darkgray;"></td>
+                                    <td class="desc_day col_day_7" colspan="3" style="border-left-width:medium;border-left-color:darkgray;"></td>
+                                    <td class="exchange_button" style="border: none; border-left-width:medium;border-left-color:darkgray;"></td>
+                                </tr>
+                                <tr class="c sess">
+                                    <td class="d"></td>
+                                    <td class="d"></td>
+                                    <td class="e"><span id="total_br" class="total_br">0</span> | <span id="total_tp" class="total_tp">0</span> TSS/dia</td>
+                                    <td class="d"></td><td class="d"></td><td class="d02"></td>';
+
+                        $header .= '<td class="ses1" style="border-left-width:medium;border-left-color:darkgray;">Session 1</td>';
+                        $header .= '<td class="ses2">Session 2</td>';
+                        $header .= '<td class="ses3">Session 3</td>';
+                        $header .= '<td class="ses4" style="border-left-width:medium;border-left-color:darkgray;">Session 1</td>';
+                        $header .= '<td class="ses5">Session 2</td>';
+                        $header .= '<td class="ses6">Session 3</td>';
+                        $header .= '<td class="ses7" style="border-left-width:medium;border-left-color:darkgray;">Session 1</td>';
+                        $header .= '<td class="ses8">Session 2</td>';
+                        $header .= '<td class="ses9">Session 3</td>';
+                        $header .= '<td class="ses10" style="border-left-width:medium;border-left-color:darkgray;">Session 1</td>';
+                        $header .= '<td class="ses11">Session 2</td>';
+                        $header .= '<td class="ses12">Session 3</td>';
+                        $header .= '<td class="ses13" style="border-left-width:medium;border-left-color:darkgray;">Session 1</td>';
+                        $header .= '<td class="ses14">Session 2</td>';
+                        $header .= '<td class="ses15">Session 3</td>';
+                        $header .= '<td class="ses16" style="border-left-width:medium;border-left-color:darkgray;">Session 1</td>';
+                        $header .= '<td class="ses17">Session 2</td>';
+                        $header .= '<td class="ses18">Session 3</td>';
+                        $header .= '<td class="ses19" style="border-left-width:medium;border-left-color:darkgray;">Session 1</td>';
+                        $header .= '<td class="ses20">Session 2</td>';
+                        $header .= '<td class="ses21">Session 3</td>';
+                        $header .= '<td title="TSS Totales" class="b" style="border-left-width:medium;border-left-color:darkgray;">TSS Totales</td>
+                                </tr>';
+
+                        $cols_hide = '';
+                        ($cols01 > 0) ? $cols_hide = $cols_hide : $cols_hide .= '1,';
+                        ($cols02 > 0) ? $cols_hide = $cols_hide : $cols_hide .= '2,';
+                        ($cols03 > 0) ? $cols_hide = $cols_hide : $cols_hide .= '3,';
+                        ($cols04 > 0) ? $cols_hide = $cols_hide : $cols_hide .= '4,';
+                        ($cols05 > 0) ? $cols_hide = $cols_hide : $cols_hide .= '5,';
+                        ($cols06 > 0) ? $cols_hide = $cols_hide : $cols_hide .= '6,';
+                        ($cols07 > 0) ? $cols_hide = $cols_hide : $cols_hide .= '7,';
+                        ($cols08 > 0) ? $cols_hide = $cols_hide : $cols_hide .= '8,';
+                        ($cols09 > 0) ? $cols_hide = $cols_hide : $cols_hide .= '9,';
+                        ($cols10 > 0) ? $cols_hide = $cols_hide : $cols_hide .= '10,';
+                        ($cols11 > 0) ? $cols_hide = $cols_hide : $cols_hide .= '11,';
+                        ($cols12 > 0) ? $cols_hide = $cols_hide : $cols_hide .= '12,';
+                        ($cols13 > 0) ? $cols_hide = $cols_hide : $cols_hide .= '13,';
+                        ($cols14 > 0) ? $cols_hide = $cols_hide : $cols_hide .= '14,';
+                        ($cols15 > 0) ? $cols_hide = $cols_hide : $cols_hide .= '15,';
+                        ($cols16 > 0) ? $cols_hide = $cols_hide : $cols_hide .= '16,';
+                        ($cols17 > 0) ? $cols_hide = $cols_hide : $cols_hide .= '17,';
+                        ($cols18 > 0) ? $cols_hide = $cols_hide : $cols_hide .= '18,';
+                        ($cols19 > 0) ? $cols_hide = $cols_hide : $cols_hide .= '19,';
+                        ($cols20 > 0) ? $cols_hide = $cols_hide : $cols_hide .= '20,';
+                        ($cols21 > 0) ? $cols_hide = $cols_hide : $cols_hide .= '21,';
+                        $cols_hide = substr($cols_hide, 0, -1);
+                        //echo $cols_hide;
+            $tab1 = '';
+            $tab2 = '';
+            $save_button = '';
+            if ($type_aux != '11' && $type_aux != '12' && $type_aux != '13' && $is_temporary == 0) {
+                  $save_button = '
+                              <div style="display:inline;">
+                                    <button class="btn" type="button" onclick="load_extra_notes_edit('.$id_event_e.','.$id_level_e.','.$id_template.','.$id_level_t.',0,0,1,0);">Ocultar/Mostrar Notas</button>
+                              </div>
+                              <div style="display:inline; float: right;">
+                                    <button class="btn btn-primary" type="button" onclick="save_all_data_db_secundary_confirm('.$type.');">Guardar Grupo Secundario</button>
+                              </div><br>';
+            }
+            if ($is_temporary != 0 && $is_master == 0 && $is_converted == 0) {
+                  $save_button = '
+                              <div style="display:inline;">
+                                    <button class="btn" type="button" onclick="load_extra_notes_edit(0,0,'.$id_event_e.','.$id_level_e.','.$id_template.','.$id_level_t.',2,1);">Ocultar/Mostrar Notas</button>
+                                    &nbsp;&nbsp;&nbsp;&nbsp;
+                                    <button class="btn btn-primary" id="add_weeks_button" type="button" onclick="form_extra_weeks_event('."'".($i-1)."'".','."'".$date_event_aux."'".','."'".$background_color."'".','."'".$cols_hide."'".');">Agregar Semanas</button>
+                              </div>
+                              <div style="display:inline; float: right;"><!--text-align:right;-->
+                                    <input type="text" class="input-default" id="new_name_to_temp_sec" maxlength="50" onkeyup="check_name_temp(this.value); return false;" style="width: 200px;" placeholder="Nombre del Template" >
+                                    &nbsp;&nbsp;&nbsp;&nbsp;
+                                    <button class="btn btn-primary event_sec_to_master" type="button" onclick="save_secundary_evento_like_master();" disabled="">Guardar Grupo Secundario Como Template</button>
+                              </div><br><br><br>';
+            }
+            $save_button .= '<div id="form_add_weeks_event"></div>';
+            $save_other_notes = '';
+            $save_other_notes = '<div id="extra_notes" style="text-align:center;"></div>';
+            $table .= $save_button;
+      return '7@-@'.$header.$table.$save_other_notes.'@-@'.$cols_hide;
+}
       //////////////
+	function get_all_values_session($id_session,$session){
+            $session_info = '';
+            $session_data = session_interpretation($session);//$distance_s.'-'.$units.','.$distance_b.'-'.$unitb.','.$distance_r.'-'.$unitr;
+            $session_tss  = session_calculate($session_data);//$calc_s.','.$calc_b.','.$calc_r
+            $session_data = explode(',', $session_data);
+            $session_data[0] = explode('-', $session_data[0]);
+            $session_data[1] = explode('-', $session_data[1]);
+            $session_data[2] = explode('-', $session_data[2]);
+            $session_tss  = explode(',', $session_tss);
+            //session_desc+'|-|'+disc_s+'|-|'+unit_s+'|-|'+stss+'|-|'+disc_b+'|-|'+unit_b+'|-|'+btss+'|-|'+disc_r+'|-|'+unit_r+'|-|'+rtss
+            $session_info = $session_data[0][0].'|-|'.$session_data[0][1].'|-|'.$session_tss[0].'|-|'.$session_data[1][0].'|-|'.$session_data[1][1].'|-|'.$session_tss[1].'|-|'.$session_data[2][0].'|-|'.$session_data[2][1].'|-|'.$session_tss[2];
+            return $id_session.'|---|'.$session.'|-|'.$session_info;
+      }
       //////////////
+	function load_discipline_parameters($discipline, $try, $type){
+      $filters = '';
+      $sels = $diss = $zones = ''; $tsss_t = 0; 
+      $selb = $disb = $zoneb = ''; $tssb_t = 0;
+      $selr = $disr = $zoner = ''; $tssr_t = 0;
+      $observation_session = 'observation';
+      switch ($discipline) {
+            case 'S':
+                  $vis_s = "";
+                  if ($try == 1) {
+                        $sels = 'selected';
+                        $diss = 'disabled';
+                        $vis_s = "hidden";
+                        $filters .= '<br><select id="sel_ps" onchange="reload_test_option(this.value,'.$type.','."'".$discipline."'".','.$try.','."'".$sels."'".','.$tsss_t.','."'".$diss."'".');">
+                                          <option value="">Selecciona una Prueba...</option>
+                                          <option value="t">Prueba de la T</option>
+                                          <option value="css">Prueba CSS</option>
+                                    </select>';
+                  }else{ $filters .= 'Parámetros de S:<br>'; }
+                  $filters .= '<div id="test_s" '.$vis_s.'>
+                        <center>
+                              <select class="input_box" id="s'.$type.'" onchange="change_session_box_individual('.$type.', '."'".$discipline."'".', '.$try.'); reset_chk_s('.$type.'); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');" '.$diss.'>
+                                    <option value="">0</option>
+                                    <option value="500" >500</option>
+                                    <option value="1000" >1000</option>
+                                    <option value="1500" '.$sels.'>1500</option>
+                                    <option value="2000" >2000</option>
+                                    <option value="2500" >2500</option>
+                                    <option value="3000" >3000</option>
+                                    <option value="3500" >3500</option>
+                                    <option value="4000" >4000</option>
+                                    <option value="4500" >4500</option>
+                              </select> &nbsp;&nbsp;&nbsp;
+                              <span id="m'.$type.'">mts</span> &nbsp;&nbsp;&nbsp;
+                              <span id="s_t'.$type.'">60</span> &nbsp;&nbsp;&nbsp;
+                              <span id="stss'.$type.'">'.$tsss_t.'</span> sTSS';
+                  ///-- -- -- -- -- -- -- -- --
+                  $filters .= '<br>';
+                  $filters .= '<label>S.1</label> <input type="checkbox" id="type_s_'.$type.'" name="type_s_'.$type.'" value="1" onchange="check_just_one_check(this.id, this.value); reset_sel_s('.$type.'); build_session_individual(1,'.$type.','."'".$discipline."'".',0);" '.$diss.'/> | ';
+                  $filters .= '<label>S.2</label> <input type="checkbox" id="type_s_'.$type.'" name="type_s_'.$type.'" value="2" onchange="check_just_one_check(this.id, this.value); reset_sel_s('.$type.'); build_session_individual(1,'.$type.','."'".$discipline."'".',0);" '.$diss.'/> | ';
+                  $filters .= '<label>S.3</label> <input type="checkbox" id="type_s_'.$type.'" name="type_s_'.$type.'" value="3" onchange="check_just_one_check(this.id, this.value); reset_sel_s('.$type.'); build_session_individual(1,'.$type.','."'".$discipline."'".',0);" '.$diss.'/> | ';
+                  $filters .= '<label>S.4</label> <input type="checkbox" id="type_s_'.$type.'" name="type_s_'.$type.'" value="4" onchange="check_just_one_check(this.id, this.value); reset_sel_s('.$type.'); build_session_individual(1,'.$type.','."'".$discipline."'".',0);" '.$diss.'/> | ';
+                  $filters .= '<label>S.5</label> <input type="checkbox" id="type_s_'.$type.'" name="type_s_'.$type.'" value="5" onchange="check_just_one_check(this.id, this.value); reset_sel_s('.$type.'); build_session_individual(1,'.$type.','."'".$discipline."'".',0);" '.$diss.'/> | ';
+                  $filters .= '<label>S.6</label> <input type="checkbox" id="type_s_'.$type.'" name="type_s_'.$type.'" value="6" onchange="check_just_one_check(this.id, this.value); reset_sel_s('.$type.'); build_session_individual(1,'.$type.','."'".$discipline."'".',0);" '.$diss.'/> | ';
+                  $filters = substr($filters, 0, -3);
+                  $filters .= '';
+                  ///-- -- -- -- -- -- -- -- --
+                  //Start personalized zones
+                  $zones .= '<b>Zona:<span style="color:red;"> *</span></b><br>';
+                  $zones .= '<label>Fondo</label> <input type="checkbox" id="zone_session_sel_'.$type.'" name="zone_session_sel_'.$type.'" value="F" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/> | ';
+                  $zones .= '<label>Recuperación</label> <input type="checkbox" id="zone_session_sel_'.$type.'" name="zone_session_sel_'.$type.'" value="R" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/><br>';
+                  $zones .= '<label>Umbral</label> <input type="checkbox" id="zone_session_sel_'.$type.'" name="zone_session_sel_'.$type.'" value="U" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/> | ';
+                  $zones .= '<label>Velocidad</label> <input type="checkbox" id="zone_session_sel_'.$type.'" name="zone_session_sel_'.$type.'" value="V" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/>';
+                  //Finish personalized zones
+                  $filters .=' <br>'.$zones.' <br>&nbsp;';
+                  
+                  $filters .=' <br>Observación:
+                              <input type="text" id="observation_session'.$type.'" maxlength="20" onkeyup="build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.'); return false;" '.$diss.'>
+                        </center></div>';
+                  break;
+            case 'B':
+                  $disb_02 = 'disabled';
+                  if ($try == 1) {
+                        $filters .= 'FTPs:<br>';
+                        $filters .= '
+                              <center>
+                                    <b><span>FTP: </span><span style="color:red;">*</span></b>
+                                    <select id="ftp_num'.$type.'" onchange="build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');">
+                                          <option value=""></option>
+                                          <option value="1">FTP.1</option>
+                                          <option value="2">FTP.2</option>
+                                    </select>
+                              <br>';
+                        $selb = 'selected';
+                        $disb = 'disabled';
+                        $tssb_t = 80;
+                  }else{
+                        $filters .= 'Parámetros de B:<br>';
+                        $filters .= '
+                              <center>';
+                        $zoneb = '';
+                        //Start personalized zones
+                        $zoneb .= '<b>Zona:<span style="color:red;"> *</span></b><br>';
+                        $zoneb .= '<label>Z1</label> <input type="checkbox" id="zone_session_sel_'.$type.'" name="zone_session_sel_'.$type.'" value="Z1" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/> | ';
+                        $zoneb .= '<label>Z2</label> <input type="checkbox" id="zone_session_sel_'.$type.'" name="zone_session_sel_'.$type.'" value="Z2" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/> | ';
+                        $zoneb .= '<label>Z3</label> <input type="checkbox" id="zone_session_sel_'.$type.'" name="zone_session_sel_'.$type.'" value="Z3" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/> | ';
+                        $zoneb .= '<label>Z4</label> <input type="checkbox" id="zone_session_sel_'.$type.'" name="zone_session_sel_'.$type.'" value="Z4" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/> | ';
+                        $zoneb .= '<label>Z5</label> <input type="checkbox" id="zone_session_sel_'.$type.'" name="zone_session_sel_'.$type.'" value="Z5" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/><br>';
+                        $zoneb .= '<label>Fza</label> <input type="checkbox" id="zone_session_sel_'.$type.'" name="zone_session_sel_'.$type.'" value="Fza" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/> | ';
+                        $zoneb .= '<label>PC</label> <input type="checkbox" id="zone_session_sel_'.$type.'" name="zone_session_sel_'.$type.'" value="PC" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/> | ';
+                        $zoneb .= '<label>SST</label> <input type="checkbox" id="zone_session_sel_'.$type.'" name="zone_session_sel_'.$type.'" value="SST" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/> | ';
+                        $zoneb .= '<label>AC</label> <input type="checkbox" id="zone_session_sel_'.$type.'" name="zone_session_sel_'.$type.'" value="AC" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/> | ';
+                        $zoneb .= '<label>NP</label> <input type="checkbox" id="zone_session_sel_'.$type.'" name="zone_session_sel_'.$type.'" value="NP" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/> | ';
+                        $zoneb = substr($zoneb, 0, -3);
+                        $zoneb .= '';
+                        //Finish personalized zones
+                  }
+                  $filters .= '
+                              <!--<center>-->
+                                    <span id="sel_cant_b'.$type.'">
+                                          <select class="input_box" id="b'.$type.'" onchange="change_session_box_individual('.$type.', '."'".$discipline."'".', '.$try.'); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');" '.$disb.' '.$disb_02.' onclick="show_alert();">
+                                                <option value="">0</option>
+                                                <option value="10" >10</option>
+                                                <option value="20" >20</option>
+                                                <option value="30" >30</option>
+                                                <option value="40" >40</option>
+                                                <option value="50" >50</option>
+                                                <option value="60" '.$selb.'>60</option>
+                                                <option value="70" >70</option>
+                                                <option value="80" >80</option>
+                                                <option value="90" >90</option>
+                                                <option value="100" >100</option>
+                                                <option value="110" >110</option>
+                                                <option value="120" >120</option>
+                                                <option value="130" >130</option>
+                                                <option value="140" >140</option>
+                                                <option value="150" >150</option>
+                                                <option value="160" >160</option>
+                                                <option value="170" >170</option>
+                                                <option value="180" >180</option>
+                                                <option value="190" >190</option>
+                                                <option value="200" >200</option>
+                                                <option value="210" >210</option>
+                                                <option value="220" >220</option>
+                                                <option value="230" >230</option>
+                                                <option value="240" >240</option>
+                                                <option value="250" >250</option>
+                                                <option value="260" >260</option>
+                                                <option value="270" >270</option>
+                                                <option value="280" >280</option>
+                                                <option value="290" >290</option>
+                                                <option value="300" >300</option>
+                                                <option value="310" >310</option>
+                                                <option value="320" >320</option>
+                                                <option value="330" >330</option>
+                                                <option value="340" >340</option>
+                                                <option value="350" >350</option>
+                                                <option value="360" >360</option>
+                                                <option value="370" >370</option>
+                                                <option value="380" >380</option>
+                                                <option value="390" >390</option>
+                                                <option value="400" >400</option>
+                                          </select>
+                                    </span> &nbsp;&nbsp;&nbsp;
+                                    <span id="mb'.$type.'">';
+                                          $filters .= '<!-- <label>min</label> <input type="radio" id="selb'.$type.'" name="selb'.$type.'" value="min" onclick="change_session_box_individual('.$type.', '."'".$discipline."'".', '.$try.'); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.'); load_cant_sel(this.value, '.$type.','."'".$discipline."'".','.$try.','."'".$disb."'".','."'b'".');" '.$disb.'/> &nbsp;|&nbsp;';
+                                          $filters .= ' <label> km</label> <input type="radio" id="selb'.$type.'" name="selb'.$type.'" value="km" onclick="change_session_box_individual('.$type.', '."'".$discipline."'".', '.$try.'); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.'); load_cant_sel(this.value, '.$type.','."'".$discipline."'".','.$try.','."'".$disb."'".','."'b'".');" '.$disb.'/>-->
+                                          <!---->
+                                          <!--AHORA CON CHECKBOX-->';
+                                          $filters .= ' <label>min</label> <input type="checkbox" id="selb'.$type.'" name="selb'.$type.'" value="min" onchange="check_just_one_check(this.id, this.value); change_session_box_individual('.$type.', '."'".$discipline."'".', '.$try.'); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.'); load_cant_sel(this.value, '.$type.','."'".$discipline."'".','.$try.','."'".$disb."'".','."'b'".');" '.$disb.'/> &nbsp;|&nbsp;';
+                                          $filters .= ' <label> km</label> <input type="checkbox" id="selb'.$type.'" name="selb'.$type.'" value="km" onchange="check_just_one_check(this.id, this.value); change_session_box_individual('.$type.', '."'".$discipline."'".', '.$try.'); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.'); load_cant_sel(this.value, '.$type.','."'".$discipline."'".','.$try.','."'".$disb."'".','."'b'".');" '.$disb.'/>
+                                    </span> &nbsp;&nbsp;&nbsp;
+                                    <span id="b_t'.$type.'"></span> &nbsp;&nbsp;&nbsp;
+                                    <span id="tss'.$type.'">'.$tssb_t.'</span>&nbsp;&nbsp; TSS
+                                    <br>
+                                    '.$zoneb.'
+                                    <br>Observación:
+                                    <input type="text" id="observation_session'.$type.'" maxlength="20" onkeyup="build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.'); return false;" '.$disb.'>
+                              </center>';
+                  break;
+            case 'R':
+                  $disr_02 = 'disabled';
+                  if ($try == 1) {
+                          $disr = 'disabled';
+                        $filters .= 'Prueba:<br>';
+                        $filters .= '<center>';
+                        $filters .= '     <label>Vdot</label>
+                                          <input type="checkbox" id="try_r'.$type.'" name="try_r'.$type.'" value="vdot" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".'R'."'".','.$try.');"/> |';
+                        $filters .= '     <label>Milla</label>
+                                          <input type="checkbox" id="try_r'.$type.'" name="try_r'.$type.'" value="milla" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".'R'."'".','.$try.');"/> |';
+                        $filters .= '     <label>3k</label>
+                                          <input type="checkbox" id="try_r'.$type.'" name="try_r'.$type.'" value="3k" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".'R'."'".','.$try.');"/> |';
+                        $filters .= '     <label>5k</label>
+                                          <input type="checkbox" id="try_r'.$type.'" name="try_r'.$type.'" value="5k" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".'R'."'".','.$try.');"/>';
+                        $filters .= '</center>';
+                  }else{
+                        $filters .= 'Parámetros de R:<br>'; $zoner = '';
+                        $all_zones = select_gral('`Zones`','name_z','name_z NOT IN("Z1+","Z1-","Z2+","Z2-","Z3+","Z3-","Z4+","Z4-")','id_z','name_z');
+                        if ($all_zones == true) {
+                              $zoner .= '<b>Zona:<span style="color:red;"> *</span></b><br>';
+                              foreach ($all_zones as $key) {
+                                    //CHECKBOX
+                                    $zoner .= '<label>'.$key[0].'</label> <input type="checkbox" id="zone_session_sel_'.$type.'" name="zone_session_sel_'.$type.'" value="'.$key[0].'" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/> | ';
+                              }
+                        }
+                        $zoner = substr($zoner, 0, -3);
+                        $zoner .= '';
+                  }
+                  $filters .= '
+                              <center>
+                                    <span id="sel_cant_r'.$type.'">
+                                          <select class="input_box" id="r'.$type.'" onchange="change_session_box_individual('.$type.', '."'".$discipline."'".', '.$try.'); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');" '.$disr.' '.$disr_02.'>
+                                                <option value="">0</option>
+                                                <option value="10" >10</option>
+                                                <option value="20" >20</option>
+                                                <option value="30" >30</option>
+                                                <option value="40" >40</option>
+                                                <option value="50" '.$selr.'>50</option>
+                                                <option value="60" >60</option>
+                                                <option value="70" >70</option>
+                                                <option value="80" >80</option>
+                                                <option value="90" >90</option>
+                                                <option value="100" >100</option>
+                                                <option value="110" >110</option>
+                                                <option value="120" >120</option>
+                                                <option value="130" >130</option>
+                                                <option value="140" >140</option>
+                                                <option value="150" >150</option>
+                                                <option value="160" >160</option>
+                                                <option value="170" >170</option>
+                                                <option value="180" >180</option>
+                                                <option value="190" >190</option>
+                                                <option value="200" >200</option>
+                                          </select>
+                                    </span> &nbsp;&nbsp;&nbsp;
+                                    <span id="mr'.$type.'">';
+                                          $filters .= '<!-- <label>min</label> <input type="radio" id="selr'.$type.'" name="selr'.$type.'" value="min" onclick="change_session_box_individual('.$type.', '."'".$discipline."'".', '.$try.'); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.'); load_cant_sel(this.value, '.$type.','."'".$discipline."'".','.$try.','."'".$disb."'".','."'r'".');" '.$disb.'/> &nbsp;|&nbsp;';
+                                          $filters .= ' <label> km</label> <input type="radio" id="selr'.$type.'" name="selr'.$type.'" value="km" onclick="change_session_box_individual('.$type.', '."'".$discipline."'".', '.$try.'); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.'); load_cant_sel(this.value, '.$type.','."'".$discipline."'".','.$try.','."'".$disb."'".','."'r'".');" '.$disb.'/>-->
+                                          <!---->
+                                          <!--AHORA CON CHECKBOX-->';
+                                          $filters .= ' <label>min</label> <input type="checkbox" id="selr'.$type.'" name="selr'.$type.'" value="min" onchange="check_just_one_check(this.id, this.value); change_session_box_individual('.$type.', '."'".$discipline."'".', '.$try.'); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.'); load_cant_sel(this.value, '.$type.','."'".$discipline."'".','.$try.','."'".$disb."'".','."'r'".');" '.$disr.'/> &nbsp;|&nbsp;';
+                                          $filters .= ' <label> km</label> <input type="checkbox" id="selr'.$type.'" name="selr'.$type.'" value="km" onchange="check_just_one_check(this.id, this.value); change_session_box_individual('.$type.', '."'".$discipline."'".', '.$try.'); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.'); load_cant_sel(this.value, '.$type.','."'".$discipline."'".','.$try.','."'".$disb."'".','."'r'".');" '.$disr.'/>
+                                          <!---->
+                                    </span> &nbsp;&nbsp;&nbsp;
+                                    <span id="r_t'.$type.'"></span> &nbsp;&nbsp;&nbsp;
+                                    <span id="rtss'.$type.'">'.$tssr_t.'</span>&nbsp; rTSS
+                                    <br>
+                                    '.$zoner.'
+                                    <br>Observación:
+                                    <input type="text" id="observation_session'.$type.'" maxlength="20" onkeyup="build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.'); return false;" '.$disr.'>
+                              </center>';
+                  break;
+            case 'BR':
+                  $disb = 'disabled';
+                  $disr = 'disabled';
+                  if ($try == 1) {
+                        $filters .= 'Parámetros de KW:<br>';
+                  }else{
+                        $filters .= 'Parámetros de BR:<br>';
+                  }
+                  $filters .= '
+                              <center>&nbsp;B:
+                                    <span id="sel_cant_b'.$type.'">
+                                          <select class="input_box" id="b'.$type.'" onchange="change_session_box_individual('.$type.', '."'".$discipline."'".', '.$try.'); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');" '.$disb.'>
+                                                <option value="">0</option>
+                                                <option value="10" >10</option>
+                                                <option value="20" >20</option>
+                                                <option value="30" >30</option>
+                                                <option value="40" >40</option>
+                                                <option value="50" >50</option>
+                                                <option value="60" >60</option>
+                                                <option value="70" >70</option>
+                                                <option value="80" >80</option>
+                                                <option value="90" >90</option>
+                                                <option value="100" >100</option>
+                                                <option value="110" >110</option>
+                                                <option value="120" >120</option>
+                                                <option value="130" >130</option>
+                                                <option value="140" >140</option>
+                                                <option value="150" >150</option>
+                                                <option value="160" >160</option>
+                                                <option value="170" >170</option>
+                                                <option value="180" >180</option>
+                                                <option value="190" >190</option>
+                                                <option value="200" >200</option>
+                                                <option value="210" >210</option>
+                                                <option value="220" >220</option>
+                                                <option value="230" >230</option>
+                                                <option value="240" >240</option>
+                                                <option value="250" >250</option>
+                                                <option value="260" >260</option>
+                                                <option value="270" >270</option>
+                                                <option value="280" >280</option>
+                                                <option value="290" >290</option>
+                                                <option value="300" >300</option>
+                                                <option value="310" >310</option>
+                                                <option value="320" >320</option>
+                                                <option value="330" >330</option>
+                                                <option value="340" >340</option>
+                                                <option value="350" >350</option>
+                                                <option value="360" >360</option>
+                                                <option value="370" >370</option>
+                                                <option value="380" >380</option>
+                                                <option value="390" >390</option>
+                                                <option value="400" >400</option>
+                                          </select>
+                                    </span> &nbsp;&nbsp;&nbsp;
+                                    <span id="mb'.$type.'">';
+                                          $filters .= '<!-- <label>min</label> <input type="radio" id="selb'.$type.'" name="selb'.$type.'" value="min" onclick="change_session_box_individual('.$type.', '."'".$discipline."'".', '.$try.'); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.'); modify_units_brick(this.value,'.$type.');"/> | ';
+                                          $filters .= ' <label> km</label> <input type="radio" id="selb'.$type.'" name="selb'.$type.'" value="km" onclick="change_session_box_individual('.$type.', '."'".$discipline."'".', '.$try.'); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.'); modify_units_brick(this.value,'.$type.');"/>-->
+                                          <!---->
+                                          <!--AHORA CON CHECKBOX-->';
+                                          $filters .= ' <label>min</label> <input type="checkbox" id="selb'.$type.'" name="selb'.$type.'" value="min" onchange="check_just_one_check(this.id, this.value); change_session_box_individual('.$type.', '."'".$discipline."'".', '.$try.'); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.'); modify_units_brick(this.value,'.$type.');"/> | ';
+                                          $filters .= ' <label> km</label> <input type="checkbox" id="selb'.$type.'" name="selb'.$type.'" value="km" onchange="check_just_one_check(this.id, this.value); change_session_box_individual('.$type.', '."'".$discipline."'".', '.$try.'); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.'); modify_units_brick(this.value,'.$type.');"/>
+                                          <!---->
+                                    </span> &nbsp;&nbsp;&nbsp;
+                                    <span id="b_t'.$type.'"></span> &nbsp;&nbsp;&nbsp;
+                                    <span id="tss'.$type.'">0</span>&nbsp; bTSS
+                              <br>R:
+                                    <span id="sel_cant_r'.$type.'">
+                                          <select class="input_box" id="r'.$type.'" onchange="change_session_box_individual('.$type.', '."'".$discipline."'".', '.$try.'); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');" '.$disr.'>
+                                                <option value="">0</option>
+                                                <option value="10" >10</option>
+                                                <option value="20" >20</option>
+                                                <option value="30" >30</option>
+                                                <option value="40" >40</option>
+                                                <option value="50" >50</option>
+                                                <option value="60" >60</option>
+                                                <option value="70" >70</option>
+                                                <option value="80" >80</option>
+                                                <option value="90" >90</option>
+                                                <option value="100" >100</option>
+                                                <option value="110" >110</option>
+                                                <option value="120" >120</option>
+                                                <option value="130" >130</option>
+                                                <option value="140" >140</option>
+                                                <option value="150" >150</option>
+                                                <option value="160" >160</option>
+                                                <option value="170" >170</option>
+                                                <option value="180" >180</option>
+                                                <option value="190" >190</option>
+                                                <option value="200" >200</option>
+                                          </select>
+                                    </span> &nbsp;&nbsp;&nbsp;
+                                    <span id="mr'.$type.'">';
+                                          $filters .= '<!-- <label>min</label> <input type="radio" id="selr'.$type.'" name="selr'.$type.'" value="min" onclick="change_session_box_individual('.$type.', '."'".$discipline."'".', '.$try.'); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.'); load_cant_sel(this.value, '.$type.','."'".$discipline."'".','.$try.','."''".','."'r'".');" '.$disb.' disabled/> | ';
+                                          $filters .= ' <label> km</label> <input type="radio" id="selr'.$type.'" name="selr'.$type.'" value="km" onclick="change_session_box_individual('.$type.', '."'".$discipline."'".', '.$try.'); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.'); load_cant_sel(this.value, '.$type.','."'".$discipline."'".','.$try.','."''".','."'r'".');" '.$disb.' disabled/>-->
+                                          <!---->
+                                          <!--AHORA CON CHECKBOX-->';
+                                          $filters .= ' <label>min</label> <input type="checkbox" id="selr'.$type.'" name="selr'.$type.'" value="min" onchange="check_just_one_check(this.id, this.value); change_session_box_individual('.$type.', '."'".$discipline."'".', '.$try.'); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.'); load_cant_sel(this.value, '.$type.','."'".$discipline."'".','.$try.','."''".','."'r'".');" '.$disb.' disabled/> | ';
+                                          $filters .= ' <label> km</label> <input type="checkbox" id="selr'.$type.'" name="selr'.$type.'" value="km" onchange="check_just_one_check(this.id, this.value); change_session_box_individual('.$type.', '."'".$discipline."'".', '.$try.'); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.'); load_cant_sel(this.value, '.$type.','."'".$discipline."'".','.$try.','."''".','."'r'".');" '.$disb.' disabled/>
+                                          <!---->
+                                    </span> &nbsp;&nbsp;&nbsp;
+                                    <span id="r_t'.$type.'"></span> &nbsp;&nbsp;&nbsp;
+                                    <span id="rtss'.$type.'">0</span>&nbsp; rTSS
+                                    <br>';
+                                    //Start personalized zones
+                                    $filters .= '<b>Zona:<span style="color:red;"> *</span></b><br>';
+                                    $filters .= '<label>Z1</label> <input type="checkbox" id="zone_session_sel_'.$type.'" name="zone_session_sel_'.$type.'" value="Z1" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/> | ';
+                                    $filters .= '<label>Z2</label> <input type="checkbox" id="zone_session_sel_'.$type.'" name="zone_session_sel_'.$type.'" value="Z2" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/> | ';
+                                    $filters .= '<label>Z3</label> <input type="checkbox" id="zone_session_sel_'.$type.'" name="zone_session_sel_'.$type.'" value="Z3" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/> | ';
+                                    $filters .= '<label>Z4</label> <input type="checkbox" id="zone_session_sel_'.$type.'" name="zone_session_sel_'.$type.'" value="Z4" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/> | ';
+                                    $filters .= '<label>Z5</label> <input type="checkbox" id="zone_session_sel_'.$type.'" name="zone_session_sel_'.$type.'" value="Z5" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/><br>';
+                                    $filters .= '<label>Fza</label> <input type="checkbox" id="zone_session_sel_'.$type.'" name="zone_session_sel_'.$type.'" value="Fza" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/> | ';
+                                    $filters .= '<label>PC</label> <input type="checkbox" id="zone_session_sel_'.$type.'" name="zone_session_sel_'.$type.'" value="PC" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/> | ';
+                                    $filters .= '<label>SST</label> <input type="checkbox" id="zone_session_sel_'.$type.'" name="zone_session_sel_'.$type.'" value="SST" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/> | ';
+                                    $filters .= '<label>AC</label> <input type="checkbox" id="zone_session_sel_'.$type.'" name="zone_session_sel_'.$type.'" value="AC" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/> | ';
+                                    $filters .= '<label>NP</label> <input type="checkbox" id="zone_session_sel_'.$type.'" name="zone_session_sel_'.$type.'" value="NP" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/> | ';
+                                    $filters = substr($filters, 0, -3);
+                                    $filters .= '';
+                                    //Finish personalized zones
+                                    $filters .='
+                                          <br>Observación:
+                                          <input type="text" id="observation_session'.$type.'" maxlength="20" onkeyup="build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.'); return false;">';
+                                    $filters .='
+                              </center>';
+                  break;
+            case 'F':
+                  $filters .= 'Parámetros de F:<br>';
+                  $filters .= '
+                        <center>
+                              <!--&nbsp;&nbsp;&nbsp;&nbsp;-->
+                              Opción: <span style="color:red;">* </span><br>';
+                  //CON CHECKBOX
+                  $filters .= '<label>Core</label> <input id="force_option'.$type.'" type="checkbox" value="Core" name="force_option'.$type.'" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/> | ';
+                  $filters .= '<label>Pierna</label> <input id="force_option'.$type.'" type="checkbox" value="Pierna" name="force_option'.$type.'" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/> | ';
+                  $filters .= '<label>Superior</label> <input id="force_option'.$type.'" type="checkbox" value="Superior" name="force_option'.$type.'" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/> | ';
+                  $filters .= '<label>General</label> <input id="force_option'.$type.'" type="checkbox" value="General" name="force_option'.$type.'" onchange="check_just_one_check(this.id, this.value); build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.');"/>';
+                 $filters .= '<br>
+                              &nbsp;&nbsp;
+                              Duración: <span style="color:red;">* </span>
+                              <select id="force_time'.$type.'" style="width:50px;" onchange="build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.'); return false;">
+                                    <option value=""></option>
+                                    <option value="10">10</option> <option value="20">20</option> <option value="30">30</option>
+                                    <option value="40">40</option> <option value="50">50</option> <option value="60">60</option>
+                                    <option value="70">70</option> <option value="80">80</option> <option value="90">90</option>
+                                    <option value="100">100</option> <option value="110">110</option> <option value="120">120</option>
+                              </select> min
+                              <br>
+                              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                              Identificador: <span style="color:red;">* </span>
+                              <input type="text" id="force_id'.$type.'" maxlength="20" onkeyup="build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.'); return false;">
+                              <br>
+                        </center>';
+                  break;
+            case 'XT':
+                  $filters .= 'Parámetros de XT:<br>';
+                  $filters .= '
+                        <center>
+                              Duración: 
+                              <select id="tx_time'.$type.'" style="width:50px;" onchange="build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.'); return false;">
+                                    <option value=""></option>
+                                    <option value="15">15</option> <option value="30">30</option>
+                                    <option value="45">45</option> <option value="60">60</option>
+                              </select> min
+                              <br>Observación:
+                              <input type="text" id="observation_session'.$type.'" maxlength="20" onkeyup="build_session_individual(1,'.$type.','."'".$discipline."'".','.$try.'); return false;">
+                        </center>';
+                  break;
+            case 'off': $filters .= ''; break;
+            default: $filters .= '<span style="color:red;font-size:12px;">Por favor, selecciona un disciplina...</span>'; break;
+      }
+      return $filters.'&&&#is_try_'.$type;//content&&&id_or_class
+}
       //////////////
 ?>
