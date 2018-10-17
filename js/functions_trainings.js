@@ -330,3 +330,107 @@ function save_all_data_db_secundary_options(res){//id_temporary|@|trains_event|@
 		}
 	}
 }
+function save_individual_session(id_session){
+	var id_event = document.getElementById('name_master_sel').value;
+	var id_level = document.getElementById('level_master').value;
+	if (id_level == null) { id_level = document.getElementById('level_master_tst').value; }
+	var type_event = document.getElementById('type_master').value;
+	var note_event = '';
+	(document.getElementById('notes_event')) ? note_event = document.getElementById("notes_event").value : note_event = '';
+	if (id_event == 'new_master') {
+		var week_event = document.getElementById('weeks_train').value;
+		if(!document.getElementById('weeks_train_b') || document.getElementById('weeks_train_b').value == ''){ 
+			weeks_bef = 0; 
+			orig_assig = 0;
+		}else{ 
+			weeks_bef = document.getElementById('weeks_train_b').value; 
+			orig_assig = document.getElementById('orig_assig').value;
+		}
+		week_event = parseInt(week_event)+parseInt(weeks_bef);
+		var name_event = document.getElementById('name_event').value;
+		var date_event = '0000-00-00';
+		var info_event = name_event+'||'+date_event+'||'+week_event+'||'+type_event+'||'+note_event;
+		var orig_assig = '';
+		if(!document.getElementById('weeks_train_b') || document.getElementById('weeks_train_b').value == ''){
+			orig_assig = 0;
+		}else{
+			orig_assig = document.getElementById('orig_assig').value;
+		}
+		x_save_new_master_individual(info_event,id_session,5,orig_assig, Content_process);
+	}else{
+		//VARIABLES A MANDAR
+		//session_des,disc_s,unit_s,stss,disc_b,unit_b,btss,disc_r,unit_r,rtss,cicle_week,lr(valor cualquiera),week,day,session
+		//session_1_1_1_c, s_cant_1_1_1_c, s_med_1_1_1_c, s_tss_1_1_1_c, b_cant_1_1_1_c, b_med_1_1_2_c, b_tss_1_1_3_c, r_cant_1_1_3_c, r_med_1_1_3_c, r_tss_1_1_3_c, cicle_week_3_c
+		//cicle_week_3_c
+		var alernative_id = '';
+		var last_id = id_session.replace("session_","");
+		var parts_id = last_id.split('_');
+		var session_desc = document.getElementById(id_session).value;
+		session_desc = replace_string(session_desc, "+", "mmaass");
+		alernative_id = 's_cant_'+last_id;
+		var disc_s	  = document.getElementById(alernative_id);
+		disc_s 		  = disc_s.innerHTML;
+		alernative_id = 's_med_'+last_id;
+		var unit_s	  = document.getElementById(alernative_id);
+		unit_s 		  = unit_s.innerHTML;
+		alernative_id = 's_tss_'+last_id;
+		var stss	  = document.getElementById(alernative_id);
+		stss 		  = stss.innerHTML;
+		alernative_id = 'b_cant_'+last_id;
+		var disc_b	  = document.getElementById(alernative_id);
+		disc_b 		  = disc_b.innerHTML;
+		alernative_id = 'b_med_'+last_id;
+		var unit_b	  = document.getElementById(alernative_id);
+		unit_b 		  = unit_b.innerHTML;
+		alernative_id = 'b_tss_'+last_id;
+		var btss	  = document.getElementById(alernative_id);
+		btss 		  = btss.innerHTML;
+		alernative_id = 'r_cant_'+last_id;
+		var disc_r	  = document.getElementById(alernative_id);
+		disc_r        = disc_r.innerHTML;
+		alernative_id = 'r_med_'+last_id;
+		var unit_r	  = document.getElementById(alernative_id);
+		unit_r 		  = unit_r.innerHTML;
+		alernative_id = 'r_tss_'+last_id;
+		var rtss	  = document.getElementById(alernative_id);
+		rtss 		  = rtss.innerHTML;
+		alernative_id  = 'cicle_week_'+parts_id[2]+'_'+parts_id[3];
+		var cicle_week = document.getElementById(alernative_id).value;
+		var week 	  = parts_id[2];
+		var day 	  = parts_id[1];
+		var session   = parts_id[0];
+		if (unit_b == 'km') { disc_b = disc_b*2; unit_b = 'min'; }
+		if (unit_r == 'km') { disc_r = disc_r*5; unit_r = 'min'; }
+		var info_ses = session_desc+'|-|'+disc_s+'|-|'+unit_s+'|-|'+stss+'|-|'+disc_b+'|-|'+unit_b+'|-|'+btss+'|-|'+disc_r+'|-|'+unit_r+'|-|'+rtss+'|-|'+cicle_week+'|-|'+week+'|-|'+day+'|-|'+session+'|-|'+type_event;
+		x_save_individual_session(id_session,id_event,id_level,note_event,info_ses, Content_process);
+	}
+}
+function show_event_sessions(id_event,id_level_e,id_template,id_level_t,type){
+	jQuery('#load_table_template').html('<span style="color:green;font-size:12px;">Cargando, por favor espera...</span>');
+	setTimeout(function(){ jQuery('#load_table_template').html(''); }, 4000);
+	x_show_event_sessions(id_event,id_level_e,id_template,id_level_t,type, Content_process);
+}
+function save_individual_session_try(id_session){
+	var session_desc = document.getElementById(id_session).value;
+	session_desc = replace_string(session_desc, "+", "mmaass");
+	x_get_all_values_session(id_session,session_desc, get_values_session);
+}
+function load_discipline_parameters(type){
+	var session = document.getElementById('session_t'+type).value;
+	var discipline = jQuery('input[name=discipline_'+type+']:checked').val();
+	if (discipline == 'F' || discipline == 'XT' || discipline == 'off' ) {
+		jQuery("#checkbox_is_try_"+type).attr('checked', false);
+		jQuery("#checkbox_is_try_"+type).attr("disabled", true);
+	}else{ jQuery("#checkbox_is_try_"+type).attr("disabled", false); }
+	var is_try = 0;
+	if(jQuery("#checkbox_is_try_"+type).prop('checked') == true){
+	    is_try = 1;
+	    build_session_individual(1, type, discipline, is_try);
+	}else{ jQuery('#session_t'+type).html(''); }
+	if (discipline == 'off') {
+		jQuery('#session_t'+type).html(discipline+'.descanso');
+		jQuery('#is_try_'+type).html('');
+		jQuery("#btn_box_"+type).attr('class', 'btn btn-primary');
+	}else{ x_load_discipline_parameters(discipline,is_try,type, Content_universal);	}
+}
+
