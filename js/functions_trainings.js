@@ -277,3 +277,56 @@ function save_all_data_db_secundary_confirm(type){
 		x_save_all_data_db_secundary_confirm(id_event,id_level,name_event,num_weeks,type, save_all_data_db_secundary_options);
 	}
 }
+function save_all_data_db_secundary_event(option,id_event_t){
+	jQuery('.load').html('<span style="color:red;font-size:14px;"><p>Guardando información...</p></span>');
+	var name_event  = document.getElementById('name_event').value;
+	var id_event  = document.getElementById('name_master_sel').value;
+	var id_level  = document.getElementById('level_master').value;
+	var num_weeks = parseInt(document.getElementById('weeks_train').value);
+	var cicles_weeks = '', weeks = '';//sessions = '';
+	var sessions = [];
+	var num_session = 3;
+	var num_days    = 7;
+	for (var i = 1; i <= num_weeks; i++) {
+		//ciclos semanales
+		cicles_weeks = cicles_weeks.concat(document.getElementById('cicle_week_'+i).value)+',';
+		//semanas
+		weeks = weeks.concat(i)+',';
+		//sesiones
+		for (var j = 1; j <= num_days; j++) {
+			for (var k = 1; k <= num_session; k++) {
+				sessions.push(replace_string((((document.getElementById('session_'+k+'_'+j+'_'+i).value).replace("+","mmaass").replace("@","aarroobbaa"))), "+", "mmaass")+'///');
+			}
+			sessions.push('|||');
+		}
+		sessions.push('@@@');
+	}
+	cicles_weeks = cicles_weeks.slice(0,-1);
+	weeks 		 = weeks.slice(0,-1);
+	var notes = document.getElementById('notes_event').value;
+	var id_temp   = '';
+	var id_temp_l = '';
+	if (document.getElementById('id_temp') != null) { id_temp = document.getElementById('id_temp').value; }else{ id_temp = document.getElementById('name_master_sel').value; }
+	if (document.getElementById('level_temp') != null) { id_temp_l = document.getElementById('level_temp').value; }else{ id_temp_l = document.getElementById('level_master').value; }
+	x_save_all_data_db_secundary_event(option,id_event,id_level,name_event,cicles_weeks,id_event_t,sessions,num_weeks,notes,id_temp,id_temp_l, Content_process);
+}
+function save_temporal_event(){
+	if(confirm("Deseas guardar esta información como un Evento Secundario del Evento Actual?")){
+        //Si guardas esta información como un Evento Secundario, al pasar la fecha del Evento Principal, este evento será eliminado y no podrás ver mas informacón al respecto, deseas continuar?
+        save_all_data_db_secundary_event();
+    }else{ jQuery().toastmessage('showErrorToast', 'Ningún dato guardado...'); }
+}
+function save_all_data_db_secundary_options(res){//id_temporary|@|trains_event|@|type
+	res = res.split("|@|");
+	if (res[0] == "repeat_name" && res[2] == 0) { jQuery().toastmessage('showErrorToast', 'El Nombre del Evento ya existe...'); /*alert("--1--");*/ }
+	if (res[0] == "repeat_name" && res[2] == 1) { save_all_data_db_secundary_event(4,res[0]); /*alert("--2--");*/ }
+	if ((res[0] == 0 && res[2] == 0)||(res[0] == 0 && res[1] == 0)) { save_all_data_db_secundary_event(1,res[0]); /*alert("--3--");*/ }//Se generará nuevo evento y se agregaran trainings
+	if (res[0] > 0 && res[1] == 0 && res[2] == 0) { save_all_data_db_secundary_event(2,res[0]); /*alert("--4--");*/ }//Se agregarán solamente los trainings
+	if (res[0] > 0 && res[1] > 0 && res[2] == 0) {//Se agregarán y/o sustituiran trainings
+		if (confirm("El Evento Temporal ya existe, deseas modificar las sesiones?")) {
+			save_all_data_db_secundary_event(3,res[0]);
+		}else{
+			jQuery().toastmessage('showErrorToast', 'Evento no modificado...');
+		}
+	}
+}
